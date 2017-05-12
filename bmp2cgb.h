@@ -1,3 +1,6 @@
+#ifndef BMP2CGB_H
+#define BMP2CGB_H
+
 typedef signed char		s8;
 typedef unsigned char	u8;
 typedef signed short	s16;
@@ -88,3 +91,5 @@ void processBMP(void);
 void release(void);
 void remapTiles(void);
 void save(char *, char *, void *, u16);
+
+#endif /* BMP2CGB_H */
