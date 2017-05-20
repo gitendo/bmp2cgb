@@ -8,11 +8,37 @@ typedef unsigned short	u16;
 typedef signed int		s32;
 typedef unsigned int	u32;
 
-#define VERSION 		1.0
+#define VERSION 		1.01
+
+#define ERR_SILENT		0
+#define ERR_NOT_FOUND	1
+#define ERR_MALLOC_HDR	2
+#define ERR_NOT_BMP		3
+#define ERR_NOT_8BPP	4
+#define ERR_BI_RLE		5
+#define ERR_NOT_ROUNDED	6
+#define ERR_TOO_BIG		7
+#define ERR_MALLOC_BMIC	8
+#define ERR_MALLOC_BMID	9
+#define ERR_MALLOC_TMPC 10
+#define ERR_MALLOC_TMPI	11
+#define	ERR_MALLOC_BMIT	12
+#define	ERR_MAX_TILES	13
+#define ERR_MALLOC_CGBT	14
+#define ERR_PASS1		15
+#define ERR_PASS2		16
+#define ERR_PASS3		17
+#define ERR_PASS4		18
+#define ERR_TMPI_FAILED	19
+#define ERR_UNK_OPTION	20
+#define ERR_WRONG_PAL	21
+#define ERR_PADDING		22
 
 #define BI_RGB 			0x0000
 #define BI_COLORS 		256
 #define BI_TILE_SIZE	64
+#define CGB_MAP_X		32
+#define CGB_MAP_Y		32
 #define CGB_TILE_SIZE 	16
 #define EXT_ATRB 		".atr"
 #define EXT_MAP 		".map"
