@@ -42,30 +42,30 @@ void error(u8 msg) {
 		printf("\nError: ");
 
 	switch(msg) {
-		case 0	:	break;
-		case 1	:	printf("Input file not found!\n"); break;
-		case 2	:	printf("Memory allocation for BMP header failed!\n"); break;
-		case 3	:	printf("BMP signature missing!\n"); break;
-		case 4	:	printf("Only 256 color BMPs (8 bits per pixel) are supported!\n"); break;
-		case 5	:	printf("No BMP compression is allowed!\n"); break;
-		case 6	:	printf("Height and width must be a multiple of 8!\n"); break;
-		case 7	:	printf("Image too big - character map wouldn't fit in one bank!\n"); break;
-		case 8 	:	printf("Memory allocation for BMP palette failed!\n"); break;
-		case 9	:	printf("Memory allocation for BMP data failed!"); break;
-		case 10	:	printf("Memory allocation for palette helper failed!\n"); break;
-		case 11	:	printf("Memory allocation for palette index failed!\n"); break;
-		case 12 :	printf("Memory allocation for BMP data helper failed!\n"); break;
-		case 13 :	printf("Maximum tiles limit exceeded!\n"); break;
-		case 14 :	printf("Memory allocation for CGB tiles failed!\n"); break;
-		case 15 :	printf("Pass 1 failed! Maximum of 8 palettes reached!\n"); break;
-		case 16 :	printf("Pass 2 failed! Maximum of 8 palettes reached!\n"); break;
-		case 17 :	printf("Pass 3 failed! Maximum of 8 palettes reached!\n"); break;
-		case 18 :	printf("Pass 4 failed! Maximum of 8 palettes reached!\n"); break;
-		case 19	:	printf("Building palette index helper failed!\n"); break;
-		case 20 :	printf("Invalid option!\n"); break;
-		case 21	:	printf("findPalette supports only 1 or 2 color palettes!\n"); break;
-		case 22 :	printf("Padding allowed only for maps below 32 * 32 chars!\n"); break;
-		default	:	printf("Undefined error code!\n"); break;
+		case ERR_SILENT		:	break;
+		case ERR_NOT_FOUND	:	printf("Input file not found!\n"); break;
+		case ERR_MALLOC_HDR	:	printf("Memory allocation for BMP header failed!\n"); break;
+		case ERR_NOT_BMP	:	printf("BMP signature missing!\n"); break;
+		case ERR_NOT_8BPP	:	printf("Only 256 color BMPs (8 bits per pixel) are supported!\n"); break;
+		case ERR_BI_RLE		:	printf("No BMP compression is allowed!\n"); break;
+		case ERR_NOT_ROUNDED:	printf("Height and width must be a multiple of 8!\n"); break;
+		case ERR_TOO_BIG	:	printf("Image too big - character map wouldn't fit in one bank!\n"); break;
+		case ERR_MALLOC_BMIC:	printf("Memory allocation for BMP palette failed!\n"); break;
+		case ERR_MALLOC_BMID:	printf("Memory allocation for BMP data failed!"); break;
+		case ERR_MALLOC_TMPC:	printf("Memory allocation for palette helper failed!\n"); break;
+		case ERR_MALLOC_TMPI:	printf("Memory allocation for palette index failed!\n"); break;
+		case ERR_MALLOC_BMIT:	printf("Memory allocation for BMP data helper failed!\n"); break;
+		case ERR_MAX_TILES	:	printf("Maximum tiles limit exceeded!\n"); break;
+		case ERR_MALLOC_CGBT:	printf("Memory allocation for CGB tiles failed!\n"); break;
+		case ERR_PASS1		:	printf("Pass 1 failed! Maximum of 8 palettes reached!\n"); break;
+		case ERR_PASS2		:	printf("Pass 2 failed! Maximum of 8 palettes reached!\n"); break;
+		case ERR_PASS3		:	printf("Pass 3 failed! Maximum of 8 palettes reached!\n"); break;
+		case ERR_PASS4		:	printf("Pass 4 failed! Maximum of 8 palettes reached!\n"); break;
+		case ERR_TMPI_FAILED:	printf("Building palette index helper failed!\n"); break;
+		case ERR_UNK_OPTION :	printf("Invalid option!\n"); break;
+		case ERR_WRONG_PAL	:	printf("findPalette supports only 1 or 2 color palettes!\n"); break;
+		case ERR_PADDING	:	printf("Padding allowed for maps below 32 * 32 chars only!\n"); break;
+		default				:	printf("Undefined error code!\n"); break;
 	}
 
 	release();
@@ -80,36 +80,36 @@ void loadBMP(char *fname) {
 
 	ifp = fopen(fname, "rb");
 	if(ifp == NULL)
-		error(1);
+		error(ERR_NOT_FOUND);
 
 	hdr = (BITMAPHEADER *) malloc(sizeof(BITMAPHEADER));
 	if(!hdr)
-		error(2);
+		error(ERR_MALLOC_HDR);
 	fread(hdr, sizeof(BITMAPHEADER), 1, ifp);
 
 	if (hdr->bfType != 0x4D42)
-		error(3);
+		error(ERR_NOT_BMP);
 
 	if (hdr->biBitCount != 8)
-		error(4);
+		error(ERR_NOT_8BPP);
 
 	if (hdr->biCompression != BI_RGB)
-		error(5);
+		error(ERR_BI_RLE);
 
 	if ((hdr->biWidth & 7) || (hdr->biHeight & 7))
-		error(6);
+		error(ERR_NOT_ROUNDED);
 
 	if ((hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT) > MAX_MAP_SIZE)
-		error(7);
+		error(ERR_TOO_BIG);
 
 	bmiColors = (RGBQUAD *) malloc(sizeof(RGBQUAD) * BI_COLORS);
 	if (!bmiColors)
-		error(8);
+		error(ERR_MALLOC_BMIC);
 	fread(bmiColors, sizeof(RGBQUAD), BI_COLORS, ifp);
 
 	bmiData = (u8 *) malloc(hdr->biWidth * hdr->biHeight);
 	if (!bmiData)
-		error(9);
+		error(ERR_MALLOC_BMID);
 	fread(bmiData, hdr->biWidth, hdr->biHeight, ifp);
 
 	fclose(ifp);
@@ -136,7 +136,7 @@ void prepareBMP(void) {
 
 	bmiDataTmp = (u8 *) malloc(hdr->biWidth * hdr->biHeight);
 	if (!bmiDataTmp)
-		error(12);
+		error(ERR_MALLOC_BMIT);
 
 	// linear to tile conversion
 	for(map_y = 0; map_y < (hdr->biHeight / TILE_HEIGHT); map_y++) {
@@ -167,7 +167,7 @@ void processBMP(void) {
 
 	tmpColors = (CGBQUAD *) malloc(sizeof(CGBQUAD) * (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT));
 	if (!tmpColors)
-		error(10);
+		error(ERR_MALLOC_TMPC);
 
 	memset(tmpColors, 0xff, sizeof(CGBQUAD) * (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT));
 
@@ -203,7 +203,7 @@ void processBMP(void) {
 			map_y = (tile / row) * TILE_HEIGHT;
 			printf("Error: tile at %d * %d uses %d colors, no more than 4 is allowed!\n", map_x, map_y, used);
 			if((options & FLAG_INFO) == 0)
-				error(0);
+				error(ERR_SILENT);
 		}
 
 		// bubble sort palette entries to allow further removal of duplicates
@@ -247,7 +247,7 @@ u8 createPalettes(u8 slot) {
 
 	tmpIndex = malloc(sizeof(u8) * (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT));
 	if (!tmpIndex)
-		error(11);
+		error(ERR_MALLOC_TMPI);
 
 	memset(cgbPalettes, 0xff, sizeof(CGBQUAD) * MAX_PALETTES);
 
@@ -280,7 +280,7 @@ u8 createPalettes(u8 slot) {
 						memcpy(dst, src, colors_used * 2);
 						palettes_used++;
 					} else {
-						error(15);
+						error(ERR_PASS1);
 					}
 				}
 			}
@@ -313,7 +313,7 @@ u8 createPalettes(u8 slot) {
 						memcpy(dst, src, colors_used * 2);
 						palettes_used++;
 					} else {
-						error(16);
+						error(ERR_PASS2);
 					}
 				}
 			}
@@ -376,7 +376,7 @@ u8 createPalettes(u8 slot) {
 							}
 						}
 					} else {
-						error(17);
+						error(ERR_PASS3);
 					}
 				}
 			}
@@ -421,7 +421,7 @@ u8 createPalettes(u8 slot) {
 							dst[pidx] = src[cidx];
 						}
 					} else {
-						error(18);
+						error(ERR_PASS4);
 					}
 				}
 			}
@@ -441,7 +441,7 @@ u8 createPalettes(u8 slot) {
 		if(match == 1) {
 			tmpIndex[tile] = palette;
 		} else {
-			error(19);
+			error(ERR_TMPI_FAILED);
 		}
 	}
 
@@ -480,7 +480,7 @@ u8 findPalette(u16 *src, u8 palettes_used, u8 colors_used) {
 						v2 = 2; // copy both
 					break;
 				default:
-					error(21);
+					error(ERR_WRONG_PAL);
 					break;
 			}
 		}
@@ -588,20 +588,22 @@ u8 tileColors(u16 *src) {
 }
 
 
-#ifdef __linux__
 // ugly hack to solve memcmp issues in convertData(), can't nail the problem atm :/
 u8 pmcmem(u8 *dst, u8 *src, u8 n) {
+#ifdef __linux__
 	u8 i;
-	
+
 	for(i = 0; i < n; i++) {
 		if(dst[i] != src[i])
 			return 1;
 	}
 
 	return 0;
+#else
+	return memcmp(dst, src, n);
+#endif
 }
 
-#endif
 
 // creates map, attr and finalizes tileset conversion
 // return: tiles used after optimization
@@ -653,16 +655,13 @@ u16 convertData(u8 padding) {
 		flip = 1;
 		// check if any variant of processed tile already exists in table
 		for(i = 0; i < tiles_used; i++) {
-			src = (u8*) &bmiData[i * BI_TILE_SIZE];
+			src = &bmiData[i * BI_TILE_SIZE];
 
 			if((options & FLAG_DUPE) != 0) {
 				break;
 			}
-#ifdef __linux__
+
 			match = pmcmem(src, normal, BI_TILE_SIZE);
-#else
-			match = memcmp(src, normal, BI_TILE_SIZE);
-#endif
 			if(match == 0) {
 				++dupes[0];
 				flip = 0;
@@ -670,11 +669,7 @@ u16 convertData(u8 padding) {
 			}
 
 			if((options & FLAG_FLIPX) == 0) {
-#ifdef __linux__
 				match = pmcmem(src, x_flipped, BI_TILE_SIZE);
-#else
-				match = memcmp(src, x_flipped, BI_TILE_SIZE);
-#endif
 				if(match == 0) {
 					++dupes[1];
 					flip = 32;
@@ -683,11 +678,7 @@ u16 convertData(u8 padding) {
 			}
 
 			if((options & FLAG_FLIPY) == 0) {
-#ifdef __linux__
 				match = pmcmem(src, y_flipped, BI_TILE_SIZE);
-#else
-				match = memcmp(src, y_flipped, BI_TILE_SIZE);
-#endif
 				if(match == 0) {
 					++dupes[2];
 					flip = 64;
@@ -696,11 +687,7 @@ u16 convertData(u8 padding) {
 			}
 
 			if((options & FLAG_FLIPXY) == 0) {
-#ifdef __linux__
 				match = pmcmem(src, xy_flipped, BI_TILE_SIZE);
-#else
-				match = memcmp(src, xy_flipped, BI_TILE_SIZE);
-#endif
 				if(match == 0) {
 					++dupes[3];
 					flip = 96;
@@ -718,7 +705,7 @@ u16 convertData(u8 padding) {
 				bank = ((tiles_used + padding) & 0xFF00) >> 5;
 				tiles_used++;
 			} else {
-				error(13);
+				error(ERR_MAX_TILES);
 			}
 		} else {
 			cgbMap[tile] = (i + padding) & 0xFF;
@@ -730,7 +717,7 @@ u16 convertData(u8 padding) {
 
 	cgbTiles = (u8 *) malloc(tiles_used * CGB_TILE_SIZE);
 	if (!cgbTiles)
-		error(14);
+		error(ERR_MALLOC_CGBT);
 
 	// convert 8bpp to interleaved 1bpp gb style
 	for(i = 0; i < tiles_used; i++) {
@@ -759,18 +746,18 @@ u8 padmaps(u8 chr) {
 
 	map_x = hdr->biWidth / TILE_WIDTH;
 	map_y = hdr->biHeight / TILE_HEIGHT;
-	if(map_x >= 32 || map_y >= 32)
-		error(22);
-	padding = 32 - map_x;
+	if(map_x >= CGB_MAP_X || map_y >= CGB_MAP_Y)
+		error(ERR_PADDING);
+	padding = CGB_MAP_X - map_x;
 
 	for(i = map_y; i > 0; i--) {
 		src = &cgbMap[(i - 1) * map_x];
-		dst = &cgbMap[(i - 1) * 32];
+		dst = &cgbMap[(i - 1) * CGB_MAP_X];
 		memmove(dst, src, map_x);
 		memset((dst + map_x), chr, padding);
 
 		src = &cgbAtrb[(i - 1) * map_x];
-		dst = &cgbAtrb[(i - 1) * 32];
+		dst = &cgbAtrb[(i - 1) * CGB_MAP_X];
 		memmove(dst, src, map_x);
 		memset((dst + map_x), 0, padding);
 	}
@@ -836,7 +823,7 @@ int main (int argc, char *argv[]) {
 				case 'x': options |= FLAG_FLIPX; break;
 				case 'y': options |= FLAG_FLIPY; break;
 				case 'z': options |= FLAG_FLIPXY; break;
-				default: error(20); break;
+				default: error(ERR_UNK_OPTION); break;
 			}
 		} else {
 			fname = arg;
