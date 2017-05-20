@@ -14,7 +14,7 @@ Tiny, command line utility that performs conversion of 8bpp uncompressed bitmap 
 - `.chr` - optimized tileset - up to 384 unique tiles
 - `.pal` - palettes
 
-By default input image will be optimized as much as possible to provide best output. This includes removal of duplicate tiles, usage of 'flipping' feature, color sorting with duplicate removal (where it's possible) and finally remaping tileset to match generated palette data. Please notice that you'll probably have to adjust colors manually using hardware. 
+By default input image will be optimized as much as possible to provide best output. This includes removal of duplicate tiles, usage of 'flipping' feature, color sorting with duplicate removal (where it's possible) and finally remaping tileset to match generated palette data. Please notice that you'll probably have to adjust colors manually using hardware. Also, if you convert sprites, make sure that background color has lower RGB value than others. Otherwise it will end up on wrong position in palette and the output will be unusable.
 
 ### Options
 For extra needs there's few you can use:
@@ -36,8 +36,6 @@ Suppose we have 2 bitmaps ie. 160\*24 px - with 4 color fonts in ascii order and
 `bmp2cgb -d font8x8.bmp` - this will disable duplicate removal and x/y flipping, so you'll get output as in image. If we place it at $8200 we'll get ascii mapping, so writing TEXT will be equal to copying it to character map memory without additional code. In the end we'll need only font8x8.chr and font8x8.pal.
 
 `bmp2cgb -p92 -q1 -r32 game_logo.bmp` - this will have optimized output, with maps expecting your first tile at $85C0 (we leave $8000-$81FF empty, fonts will take $8200-$85A4). Map width will be expanded to 32 characters and will be padded with 32 value, which is $20 (ascii space). Also maps will be expecting your palette data in slot 1, since we need slot 0 to store font palette. `-r` option is for lazy coders who prefer to copy whole map using DMA or simple loop.
-
-If you convert sprites, make sure that background color has lower RGB value than others. Otherwise it will end up on wrong position in palette and the output will be unusable. I'll try to add proper option later.
 
 ### Bugs
 There's some weird issue with `memcmp` in `convertData()` function when you compile on Linux. It doesn't crash but the output data/info is unusable. I couldn't nail it so I temporarily fixed it with some ugly hack. :/
