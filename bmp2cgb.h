@@ -8,7 +8,7 @@ typedef unsigned short	u16;
 typedef signed int		s32;
 typedef unsigned int	u32;
 
-#define VERSION 		1.01
+#define VERSION 		1.02
 
 #define ERR_SILENT		0
 #define ERR_NOT_FOUND	1
@@ -107,8 +107,8 @@ u8 findPalette(u16 *, u8, u8);
 u8 matchPalette(u16 *, u8, u8);
 u8 padmaps(u8);
 u8 tileColors(u16 *);
-u8 usage(void);
 u16 convertData(u8);
+void banner(void);
 void bubbleSort(u8);
 void error(u8);
 void loadBMP(char *);
@@ -117,5 +117,6 @@ void processBMP(void);
 void release(void);
 void remapTiles(void);
 void save(char *, char *, void *, u16);
+void usage(void);
 
 #endif /* BMP2CGB_H */
