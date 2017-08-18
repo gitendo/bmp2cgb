@@ -18,8 +18,17 @@ CGBQUAD 		cgbPalettes[MAX_PALETTES];
 u8				options = 0;
 
 
+void banner(void) {
+	printf("\nbmp2cgb v%.2f - 8bpp bitmap to Gameboy Color converter\n", VERSION);
+	printf("programmed by: tmk, email: tmk@tuta.io\n");
+	printf("bugs & updates: https://github.com/gitendo/bmp2cgb/\n\n");
+}
+
 // haelp!
-u8 usage(void) {
+void usage(void) {
+
+	banner();
+
 	printf("syntax: bmp2cgb.exe [options] picture[.bmp]\n\n");
 	printf("options:\n");
 	printf("\t-d  - do not optimize tileset\n");
@@ -114,7 +123,7 @@ void loadBMP(char *fname) {
 
 	fclose(ifp);
 
-	printf("Bitmap size: %d * %d px\n", hdr->biWidth, hdr->biHeight);
+	printf("\nBitmap size: %d * %d px\n", hdr->biWidth, hdr->biHeight);
 	printf("Character/Attribute map: %d * %d chars\n", hdr->biWidth / 8, hdr->biHeight / 8);
 }
 
@@ -309,9 +318,21 @@ u8 createPalettes(u8 slot) {
 				if(match == 0) {
 					// check if there's free space in palettes table
 					if(palettes_used < MAX_PALETTES) {
-						dst = (u16*) &cgbPalettes[palettes_used];
-						memcpy(dst, src, colors_used * 2);
-						palettes_used++;
+						// check if there's palette w/ common color and free slot(s)
+						empty = findPalette(src, palettes_used, colors_used);
+						// no such palette, add new entry
+						if(empty == 0) {
+							dst = (u16*) &cgbPalettes[palettes_used];
+							memcpy(dst, src, colors_used * 2);
+							palettes_used++;
+						} else {
+							palette = empty >> 4;
+							// hi - palette that has dupe color and free slot
+							dst = (u16*) &cgbPalettes[palette];
+							pidx = (empty & 0x0C) >> 2;
+							cidx = (empty & 0x03);
+							dst[pidx] = src[cidx];
+						}
 					} else {
 						error(ERR_PASS2);
 					}
@@ -453,7 +474,7 @@ u8 createPalettes(u8 slot) {
 // find duplicate entries and/or free space in cgbPalettes to fit new 2 and 1 color palettes
 // return: 0 if there's no match; hi - matching palette, lo: hi - free entry index, lo - color(s)
 u8 findPalette(u16 *src, u8 palettes_used, u8 colors_used) {
-	u8 i, j, k, empty = 0, match, v1 = 0xFF, v2 = 0xFF;
+	u8 i, j, k, empty = 0, match, v1 = 0xFF, v2 = 0xFF, v3c = 0, v3i = 0;
 	u16 *dst;
 
 	for(i = 0; i < palettes_used; i++) {
@@ -479,6 +500,12 @@ u8 findPalette(u16 *src, u8 palettes_used, u8 colors_used) {
 					if(match == 0 && empty == 2) // 2 colors palette - add 2 colors
 						v2 = 2; // copy both
 					break;
+				case 3:
+					if(match == 0 && empty == 1) {// 3 colors palette - add 1 color
+						v3c++;	// counter, we need exactly 1 match
+						v3i = j; // color index
+					}
+					break;
 				default:
 					error(ERR_WRONG_PAL);
 					break;
@@ -489,6 +516,8 @@ u8 findPalette(u16 *src, u8 palettes_used, u8 colors_used) {
 			return (i << 4 | (4 - empty) << 2 | v1);	// hi - palette, lo : hi - index, lo - color to store
 		if(v2 != 0xFF)
 			return (i << 4 | (4 - empty) << 2 | v2); // hi - palette, lo : hi - index, lo = 2 colors
+		if(v3c == 1) // 3 colors palette, empty can be only last entry
+			return (i << 4 | 3 << 2 | v3i);					
 	}
 	return 0;
 }
@@ -805,10 +834,6 @@ int main (int argc, char *argv[]) {
 	u8 arg, chr = 0, fname = 0, padding = 0, palettes_used, slot = 0;
 	u16	tiles_used;
 
-	printf("\nbmp2cgb v%.2f - 8bpp bitmap to Gameboy Color converter\n", VERSION);
-	printf("programmed by: tmk, email: tmk@tuta.io\n");
-	printf("bugs & updates: https://github.com/gitendo/bmp2cgb/\n\n");
-
 	if(argc < 2)
 		usage();
 
@@ -829,6 +854,9 @@ int main (int argc, char *argv[]) {
 			fname = arg;
 		}
 	}
+
+	if((options & FLAG_INFO) == 0)
+		banner();
 
 	loadBMP(argv[fname]);
 	prepareBMP();
