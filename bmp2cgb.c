@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "bmp2cgb.h"
+#include "rgbt.h"
 
 // globals
 
@@ -15,7 +16,7 @@ u8				*cgbTiles = NULL;
 u8				cgbMap[MAX_MAP_SIZE];
 u8				cgbAtrb[MAX_MAP_SIZE];
 CGBQUAD 		cgbPalettes[MAX_PALETTES];
-u8				options = 0;
+u16				options = 0;
 
 
 void banner(void) {
@@ -32,10 +33,11 @@ void usage(void) {
 	printf("syntax: bmp2cgb.exe [options] picture[.bmp]\n\n");
 	printf("options:\n");
 	printf("\t-d  - do not optimize tileset\n");
-	printf("\t-i  - dump information, no output data is created\n");
-	printf("\t-p# - push tileset right by 1-255 characters\n");
-	printf("\t-q# - push first palette to 1-7 slot\n");
-	printf("\t-r# - pad maps to 32 characters, fill difference with tile 0-255\n");
+	printf("\t-i  - information output, no data is created\n");
+	printf("\t-p# - push map by 1-255 characters\n");
+	printf("\t-q# - push first palette to slot 1-7\n");
+	printf("\t-r# - pad map width to 32 characters with tile number 0-255\n");
+	printf("\t-t  - output RGB tuner image\n");
 	printf("\t-x  - disable horizontal flip optimization\n");
 	printf("\t-y  - disable vertical flip optimization\n");
 	printf("\t-z  - disable horizontal & vertical flip optimization\n");
@@ -809,6 +811,58 @@ void save(char *fname, char *ext, void *src, u16 size) {
 	fclose(ofp);
 }
 
+// patch rom image with converted data and update checksum
+void make_rgbt(u16 tiles_used) {
+
+	u8 i, map_x, map_y, row, *dst, *src;
+	u16 *ptr, j, crc = 0;
+
+	memcpy(&rgbt[PAL_DATA], &cgbPalettes, sizeof(CGBQUAD) * MAX_PALETTES);
+
+	map_x = hdr->biWidth / TILE_WIDTH;
+	map_y = hdr->biHeight / TILE_HEIGHT;
+
+	if(map_x >= CGB_MAP_X)
+		row = CGB_MAP_X;
+	else
+		row = map_x;
+
+	if(map_y >= CGB_MAP_Y)
+		map_y = CGB_MAP_Y;
+	
+	for(i = 0; i < map_y; i++) {
+		src = &cgbMap[i * map_x];
+		dst = &rgbt[MAP_DATA + (i * CGB_MAP_X)];
+		memcpy(dst, src, row);
+
+		src = &cgbAtrb[i * map_x];
+		dst = &rgbt[ATR_DATA + (i * CGB_MAP_X)];
+		memcpy(dst, src, row);
+	}
+
+	memcpy(&rgbt[CHR_DATA], cgbTiles, tiles_used * CGB_TILE_SIZE);
+
+	if(tiles_used > 240) {
+		ptr = (u16*)&rgbt[CHR_SIZE_VBK0];
+		*ptr = (240 * CGB_TILE_SIZE);
+		tiles_used -= 240;
+		ptr = (u16*)&rgbt[CHR_SIZE_VBK1];
+		*ptr = tiles_used * CGB_TILE_SIZE;
+	}
+	else {
+		ptr = (u16*)&rgbt[CHR_SIZE_VBK0];
+		*ptr = tiles_used * CGB_TILE_SIZE;
+		ptr = (u16*)&rgbt[CHR_SIZE_VBK1];
+		*ptr = 0;
+	}
+
+	for(j = 0; j < sizeof(rgbt); j++) {
+		crc += rgbt[j];
+	}
+
+	ptr = (u16*)&rgbt[CHECKSUM];
+	*ptr = (crc << 8) & 0xFF00 | (crc >> 8) & 0xFF;
+}
 
 // release all allocated memory before exit
 void release(void) {
@@ -845,6 +899,7 @@ int main (int argc, char *argv[]) {
 				case 'p': options |= FLAG_PUSH; padding = atoi(&argv[arg][2]); break;
 				case 'q': options |= FLAG_PAL; slot = atoi(&argv[arg][2]) & 7; break;
 				case 'r': options |= FLAG_PAD; chr = atoi(&argv[arg][2]); break;
+				case 't': options |= FLAG_RGBT | FLAG_PUSH; padding = 0x10; break;
 				case 'x': options |= FLAG_FLIPX; break;
 				case 'y': options |= FLAG_FLIPY; break;
 				case 'z': options |= FLAG_FLIPXY; break;
@@ -878,7 +933,13 @@ int main (int argc, char *argv[]) {
 		save(argv[fname], EXT_ATRB, cgbAtrb, ((hdr->biWidth / TILE_WIDTH) + padding) * (hdr->biHeight / TILE_HEIGHT));
 		save(argv[fname], EXT_MAP, cgbMap, ((hdr->biWidth / TILE_WIDTH) + padding) * (hdr->biHeight / TILE_HEIGHT));
 		save(argv[fname], EXT_TILES, cgbTiles, tiles_used * CGB_TILE_SIZE);
-		save(argv[fname], EXT_PALETTES, &cgbPalettes[slot], sizeof(CGBQUAD) * palettes_used);
+		if((options & FLAG_RGBT) == 0) {
+			save(argv[fname], EXT_PALETTES, &cgbPalettes[slot], sizeof(CGBQUAD) * palettes_used);
+		}
+		else {
+			make_rgbt(tiles_used);
+			save(argv[fname], EXT_RGBT, rgbt, sizeof(rgbt));
+		}
 	}
 
 	release();
