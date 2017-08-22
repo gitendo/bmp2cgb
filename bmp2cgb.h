@@ -8,7 +8,7 @@ typedef unsigned short	u16;
 typedef signed int		s32;
 typedef unsigned int	u32;
 
-#define VERSION 		1.02
+#define VERSION 		1.1
 
 #define ERR_SILENT		0
 #define ERR_NOT_FOUND	1
@@ -44,6 +44,7 @@ typedef unsigned int	u32;
 #define EXT_MAP 		".map"
 #define EXT_TILES 		".chr"
 #define EXT_PALETTES 	".pal"
+#define	EXT_RGBT		".gbc"
 #define FLAG_INFO 		1
 #define FLAG_DUPE 		2
 #define FLAG_FLIPX 		4
@@ -52,9 +53,10 @@ typedef unsigned int	u32;
 #define FLAG_PUSH		32
 #define FLAG_PAD 		64
 #define FLAG_PAL		128
+#define FLAG_RGBT		256
 #define MAX_MAP_SIZE 	0x4000
 #define MAX_COLORS 		4
-#define MAX_TILES 		384
+#define MAX_TILES 		512
 #define MAX_PALETTES 	8
 #define TILE_WIDTH 		8
 #define TILE_HEIGHT 	8
@@ -112,6 +114,7 @@ void banner(void);
 void bubbleSort(u8);
 void error(u8);
 void loadBMP(char *);
+void make_rgbt(u16);
 void prepareBMP(void);
 void processBMP(void);
 void release(void);
