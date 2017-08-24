@@ -45,7 +45,7 @@ This handy feature allows you to adjust palette data in real time so it's not be
 After you save any changes they will be loaded next time you start. Erase SRAM to repeat from beginning or just use it properly. When finished extract SRAM file from cartridge and include it in your project - you need only first 64 bytes. Just hex view/edit it to see what I mean.
 
 ### Examples
-Suppose we have 2 bitmaps ie. 160\*24 px - with 4 color fonts in ascii order and 160\*80 px - with game logo that uses 8 colors. Let's convert them.
+I recommend using `-i` option to make sure input image is valid. It will also help you to "debug" any cases where's more than 4 colors per tile used. Now, suppose we have 2 bitmaps ie. 160\*24 px - with 4 color fonts in ascii order and 160\*80 px - with game logo that uses 8 colors. Let's convert them.
 
 `bmp2cgb -d font8x8.bmp` - this will disable duplicate removal and x/y flipping, so you'll get output as in image. If we place it at $8200 we'll get ascii mapping, so writing TEXT will be equal to copying it to character map memory without additional code. In the end we'll need only font8x8.chr and font8x8.pal.
 
