@@ -20,9 +20,9 @@ u16				options = 0;
 
 
 void banner(void) {
-	printf("\nbmp2cgb v%.2f - 8bpp bitmap to Gameboy Color converter\n", VERSION);
+	printf("\nbmp2cgb v%.2f - 8bpp bitmap to Game Boy Color converter\n", VERSION);
 	printf("programmed by: tmk, email: tmk@tuta.io\n");
-	printf("bugs & updates: https://github.com/gitendo/bmp2cgb/\n\n");
+	printf("bugs & updates: https://github.com/gitendo/bmp2cgb/\n");
 }
 
 // haelp!
@@ -175,6 +175,8 @@ void processBMP(void) {
 	u16 map_x, map_y, *ptr, row, rgb15, tile;
 	u16 tiles = (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT);
 	u32 index, i, j;
+	// debug stuff
+	char rgb[9] = {0}, colors[64*sizeof(rgb)];
 
 	tmpColors = (CGBQUAD *) malloc(sizeof(CGBQUAD) * (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT));
 	if (!tmpColors)
@@ -197,12 +199,15 @@ void processBMP(void) {
 
 		// count, enumerate and store first 4 colors used in tile
 		used = 0;
+		memset(colors, 0, sizeof(colors));
 		for(i = 0; i < sizeof(palette); i++) {
 			if(palette[i] == 0) {
 				if(used < 4) {
 					rgb15 = (bmiColors[i].rgbBlue >> 3) << 10 | (bmiColors[i].rgbGreen >> 3) << 5 | (bmiColors[i].rgbRed >> 3);
 					ptr[used] = rgb15;
 				}
+				snprintf(rgb, sizeof(rgb), "#%02x%02x%02x ", bmiColors[i].rgbRed, bmiColors[i].rgbGreen, bmiColors[i].rgbBlue);
+				strcat(colors, rgb);
 				used++;
 			}
 		}
@@ -212,7 +217,7 @@ void processBMP(void) {
 			row = (hdr->biWidth / TILE_WIDTH);
 			map_x = (tile - (tile / row * row)) * TILE_WIDTH;
 			map_y = (tile / row) * TILE_HEIGHT;
-			printf("Error: tile at %d * %d uses %d colors, no more than 4 is allowed!\n", map_x, map_y, used);
+			printf("Error: Tile at %d * %d uses %d colors: %s\n", map_x, map_y, used, colors);
 			if((options & FLAG_INFO) == 0)
 				error(ERR_SILENT);
 		}
