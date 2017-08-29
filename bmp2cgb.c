@@ -22,7 +22,7 @@ u16				options = 0;
 void banner(void) {
 	printf("\nbmp2cgb v%.2f - 8bpp bitmap to Game Boy Color converter\n", VERSION);
 	printf("programmed by: tmk, email: tmk@tuta.io\n");
-	printf("bugs & updates: https://github.com/gitendo/bmp2cgb/\n");
+	printf("bugs & updates: https://github.com/gitendo/bmp2cgb/\n\n");
 }
 
 // haelp!
@@ -41,7 +41,6 @@ void usage(void) {
 	printf("\t-x  - disable horizontal flip optimization\n");
 	printf("\t-y  - disable vertical flip optimization\n");
 	printf("\t-z  - disable horizontal & vertical flip optimization\n");
-	printf("\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -50,7 +49,7 @@ void usage(void) {
 void error(u8 msg) {
 
 	if(msg > 0)
-		printf("\nError: ");
+		printf("Error: ");
 
 	switch(msg) {
 		case ERR_SILENT		:	break;
@@ -125,7 +124,7 @@ void loadBMP(char *fname) {
 
 	fclose(ifp);
 
-	printf("\nBitmap size: %d * %d px\n", hdr->biWidth, hdr->biHeight);
+	printf("Bitmap size: %d * %d px\n", hdr->biWidth, hdr->biHeight);
 	printf("Character/Attribute map: %d * %d chars\n", hdr->biWidth / 8, hdr->biHeight / 8);
 }
 
@@ -271,7 +270,6 @@ u8 createPalettes(u8 slot) {
 	
 	// 1st pass
 	for(tile = 0; tile < tiles; tile++) {
-
 		src = (u16*) &tmpColors[tile];
 		colors_used = tileColors(src);
 
@@ -283,6 +281,7 @@ u8 createPalettes(u8 slot) {
 				memcpy(dst, src, colors_used * 2);
 				palettes_used++;
 			} else { // another palettes are checked before being copied
+				u32	match = 0;	// satisfy GCC ver of memcmp
 				for(i = 0; i < palettes_used; i++) {
 					match = memcmp(&cgbPalettes[i], &tmpColors[tile], 8);
 					if(match == 0)
@@ -624,31 +623,14 @@ u8 tileColors(u16 *src) {
 }
 
 
-// ugly hack to solve memcmp issues in convertData(), can't nail the problem atm :/
-u8 pmcmem(u8 *dst, u8 *src, u8 n) {
-#ifdef __linux__
-	u8 i;
-
-	for(i = 0; i < n; i++) {
-		if(dst[i] != src[i])
-			return 1;
-	}
-
-	return 0;
-#else
-	return memcmp(dst, src, n);
-#endif
-}
-
-
 // creates map, attr and finalizes tileset conversion
 // return: tiles used after optimization
 u16 convertData(u8 padding) {
-	u8 bank = 0, flip, hi, lo, *src, *dst, match;
+	u8 bank = 0, flip, hi, lo, *src, *dst;
 	u8 normal[64], x_flipped[64], y_flipped[64], xy_flipped[64];
 	u16 i, j, k, dupes[4], tile, tiles_used;
 	u16 tiles = (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT);
-	u32 index;
+	u32 index, match; // satisfy GCC ver of memcmp
 
 	memset(cgbMap, 0, MAX_MAP_SIZE);
 	memset(cgbAtrb, 0, MAX_MAP_SIZE);
@@ -697,7 +679,7 @@ u16 convertData(u8 padding) {
 				break;
 			}
 
-			match = pmcmem(src, normal, BI_TILE_SIZE);
+			match = memcmp(src, normal, BI_TILE_SIZE);
 			if(match == 0) {
 				++dupes[0];
 				flip = 0;
@@ -705,7 +687,7 @@ u16 convertData(u8 padding) {
 			}
 
 			if((options & FLAG_FLIPX) == 0) {
-				match = pmcmem(src, x_flipped, BI_TILE_SIZE);
+				match = memcmp(src, x_flipped, BI_TILE_SIZE);
 				if(match == 0) {
 					++dupes[1];
 					flip = 32;
@@ -714,7 +696,7 @@ u16 convertData(u8 padding) {
 			}
 
 			if((options & FLAG_FLIPY) == 0) {
-				match = pmcmem(src, y_flipped, BI_TILE_SIZE);
+				match = memcmp(src, y_flipped, BI_TILE_SIZE);
 				if(match == 0) {
 					++dupes[2];
 					flip = 64;
@@ -723,7 +705,7 @@ u16 convertData(u8 padding) {
 			}
 
 			if((options & FLAG_FLIPXY) == 0) {
-				match = pmcmem(src, xy_flipped, BI_TILE_SIZE);
+				match = memcmp(src, xy_flipped, BI_TILE_SIZE);
 				if(match == 0) {
 					++dupes[3];
 					flip = 96;
