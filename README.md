@@ -55,4 +55,4 @@ If for some reason you'd like to get DMG output, use:
 `bmp2cgb -x -y -z dmg_image.bmp` - delete .atr and .pal and use dmg_image.chr and dmg_image.map. Then manually set BGP register.
 
 ### Bugs
-There's some weird issue with `memcmp` in `convertData()` function when you compile on Linux. It doesn't crash but the output data/info is unusable. I couldn't nail it so I temporarily fixed it with some ugly hack. :/
+Let me know if there're any.
