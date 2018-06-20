@@ -18,7 +18,7 @@ r    rebase character map to $8800-$97FF ($8000-$8FFF is default)
 
 -d    extended debug information without data output
 -s#   sprites output (transparent color RGB hex value ie. 4682b4)
--t    RGBTuner ROM image output\n");
+-t    RGBTuner ROM image output
 ```
 
 You can read [the manual](MANUAL.md) if you need more detailed explanation or don't know how to use it.
