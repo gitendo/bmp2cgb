@@ -32,5 +32,5 @@ You can read [the manual](MANUAL.md) if you need more detailed explanation or do
 ### To do :
 - get rid of all level 2 warnings
 
-### Bugs
+### Bugs :
 Hopefully none. Let me know if you find any.
