@@ -1,125 +1,123 @@
 #ifndef BMP2CGB_H
 #define BMP2CGB_H
 
-typedef signed char		s8;
-typedef unsigned char	u8;
-typedef signed short	s16;
-typedef unsigned short	u16;
-typedef signed int		s32;
-typedef unsigned int	u32;
+#define VERSION 		1.20
 
-#define VERSION 		1.1
-
-#define ERR_SILENT		0
-#define ERR_NOT_FOUND	1
-#define ERR_MALLOC_HDR	2
-#define ERR_NOT_BMP		3
-#define ERR_NOT_8BPP	4
-#define ERR_BI_RLE		5
-#define ERR_NOT_ROUNDED	6
-#define ERR_TOO_BIG		7
-#define ERR_MALLOC_BMIC	8
-#define ERR_MALLOC_BMID	9
-#define ERR_MALLOC_TMPC 10
-#define ERR_MALLOC_TMPI	11
-#define	ERR_MALLOC_BMIT	12
-#define	ERR_MAX_TILES	13
-#define ERR_MALLOC_CGBT	14
-#define ERR_PASS1		15
-#define ERR_PASS2		16
-#define ERR_PASS3		17
-#define ERR_PASS4		18
-#define ERR_TMPI_FAILED	19
-#define ERR_UNK_OPTION	20
-#define ERR_WRONG_PAL	21
-#define ERR_PADDING		22
-
-#define BI_RGB 			0x0000
-#define BI_COLORS 		256
-#define BI_TILE_SIZE	64
-#define CGB_MAP_X		32
-#define CGB_MAP_Y		32
+#define	BI_RGB			0
+#define BI_RLE8			1
+#define BI_RLE4			2
+#define BI_BITFIELDS	3
+#define BITFIELDS_SIZE	12
+#define BMP_TILE_SIZE	64
 #define CGB_TILE_SIZE 	16
-#define EXT_ATRB 		".atr"
-#define EXT_MAP 		".map"
-#define EXT_TILES 		".chr"
-#define EXT_PALETTES 	".pal"
-#define	EXT_RGBT		".gbc"
-#define FLAG_INFO 		1
-#define FLAG_DUPE 		2
-#define FLAG_FLIPX 		4
-#define FLAG_FLIPY 		8
-#define FLAG_FLIPXY 	16
-#define FLAG_PUSH		32
-#define FLAG_PAD 		64
-#define FLAG_PAL		128
-#define FLAG_RGBT		256
-#define MAX_MAP_SIZE 	0x4000
+#define	CHR_BG			1
+#define	CHR_OBJ			2
 #define MAX_COLORS 		4
+#define MAX_MAP_SIZE 	16384
+#define MAX_SLOTS 		8
 #define MAX_TILES 		512
-#define MAX_PALETTES 	8
 #define TILE_WIDTH 		8
 #define TILE_HEIGHT 	8
 
+#define EXT_ATR			".atr"
+#define EXT_MAP			".map"
+#define EXT_CHR			".chr"
+#define EXT_PAL			".pal"
+#define	EXT_GBC			".gbc"
+#define EXT_TXT			".txt"
+
+#define FLAG_DEBUG 		1
+#define FLAG_DUMP		2
+#define FLAG_FLIPX 		4
+#define FLAG_FLIPY 		8
+#define FLAG_FLIPXY 	16
+#define FLAG_UNOPT		32
+#define FLAG_REBASE		64
+#define FLAG_EXPAND		128
+#define FLAG_MPAD		256
+#define FLAG_PPAD		512
+#define FLAG_TUNER		1024
+#define FLAG_OBJ		2048
+
 #pragma pack(push, 1)
 
-typedef struct _BITMAPHEADER {
-	u16 bfType;
-	u32 bfSize;
-	u16 bfReserved1;
-	u16 bfReserved2;
-	u32 bfOffBits;
-	u32 biSize;
-	u32 biWidth;
-	u32 biHeight;
-	u16 biPlanes;
-	u16 biBitCount;
-	u32 biCompression;
-	u32 biSizeImage;
-	u32 biXPelsPerMeter;
-	u32 biYPelsPerMeter;
-	u32 biClrUsed;
-	u32 biClrImportant;
-} BITMAPHEADER;
+typedef struct _BITMAPFILEHEADER {
+	unsigned short bfType;
+	unsigned int   bfSize;
+	unsigned short bfReserved1;
+	unsigned short bfReserved2;
+	unsigned int   bfOffBits;
+} BITMAPFILEHEADER;
 
-typedef struct _RGBQUAD {
-	u8 rgbBlue;
-	u8 rgbGreen;
-	u8 rgbRed;
-	u8 rgbReserved;
-} RGBQUAD;
+typedef struct _BITMAPINFOHEADER {
+	unsigned int   biSize;
+	int            biWidth;
+	int            biHeight;
+	unsigned short biPlanes;
+	unsigned short biBitCount;
+	unsigned int   biCompression;
+	unsigned int   biSizeImage;
+	int            biXPelsPerMeter;
+	int            biYPelsPerMeter;
+	unsigned int   biClrUsed;
+	unsigned int   biClrImportant;
+} BITMAPINFOHEADER;
 
-typedef struct _RGB15 {
-	u32 rgbBlue : 5;
-	u32 rgbGreen : 5;
-	u32 rgbRed : 5;
-} RGB15;
+typedef struct _BITFIELDS {
+	unsigned int red;
+	unsigned int green;
+	unsigned int blue;
+} BITFIELDS;
 
 typedef struct _CGBQUAD {
-	u16 col0;
-	u16 col1;
-	u16 col2;
-	u16 col3;
+	unsigned short col0;
+	unsigned short col1;
+	unsigned short col2;
+	unsigned short col3;
 } CGBQUAD;
+
+typedef struct _RGB15 {
+	unsigned int blue : 5;
+	unsigned int green : 5;
+	unsigned int red : 5;
+} RGB15;
+
+typedef struct _RGBQUAD {
+	unsigned char blue;
+	unsigned char green;
+	unsigned char red;
+	unsigned char reserved;
+} RGBQUAD;
 
 #pragma pack(pop)
 
-u8 createPalettes(u8);
-u8 findPalette(u16 *, u8, u8);
-u8 matchPalette(u16 *, u8, u8);
-u8 padmaps(u8);
-u8 tileColors(u16 *);
-u16 convertData(u8);
+
 void banner(void);
-void bubbleSort(u8);
-void error(u8);
-void loadBMP(char *);
-void make_rgbt(u16);
-void prepareBMP(void);
-void processBMP(void);
-void release(void);
-void remapTiles(void);
-void save(char *, char *, void *, u16);
+void error_handler(char status);
+void make_rgbt(unsigned char *rgbtuner, unsigned char *cgb_chr, unsigned char *cgb_map, unsigned char *cgb_atr, CGBQUAD *cgb_pal, unsigned short map_height, unsigned short map_width, unsigned short used_tiles);
+void release(unsigned char **bmp_data, CGBQUAD **tmp_pal, unsigned char	**tmp_idx, unsigned char **cgb_chr);
+void save(char *fname, char *ext, void *src, int size);
 void usage(void);
+
+void flip(unsigned char *, int, int);
+char merge_24bpp(RGBQUAD *, unsigned char *, int);
+char merge_32bpp(RGBQUAD *, unsigned char *, int, unsigned int);
+char process_bmp(char *fname, BITMAPFILEHEADER **header, BITMAPINFOHEADER **info, RGBQUAD *bmp_pal, unsigned char **bmp_data, unsigned short *width, unsigned short *height);
+void split_4bpp(unsigned char *, int);
+
+void bubble_sort(unsigned short *palette, unsigned char color_index);
+char convert(unsigned char *bmp_data, unsigned char **cgb_chr, unsigned char *cgb_map, unsigned char *cgb_atr, unsigned char *tmp_idx, unsigned short tiles, unsigned short padding, unsigned short *used_tiles, unsigned short options, char status);
+char count_colors(unsigned short *slot);
+char create_tiles(unsigned char *bmp_data, unsigned short width, unsigned short height, char status);
+char create_palettes(CGBQUAD *cgb_pal, unsigned char **tmp_idx, CGBQUAD *tmp_pal, unsigned short tiles, unsigned char *slot, unsigned short options, char status);
+void expand_maps(unsigned char *cgb_map, unsigned char *cgb_atr, unsigned short rows, unsigned short columns, unsigned char chr, char status);
+char find_palette(unsigned short *src, CGBQUAD *cgb_pal, unsigned char used_slots, unsigned char used_colors);
+char match_palette(unsigned short *src, CGBQUAD *cgb_pal, unsigned char used_slots, unsigned char used_colors);
+char optimize(unsigned char *bmp_data, RGBQUAD *bmp_pal, CGBQUAD **tmp_pal, unsigned short rows, unsigned short columns, unsigned int rgbhex, unsigned short options, char status);
+void rebase(unsigned char *cgb_map, unsigned short map_size);
+void remap_colors(unsigned char *bmp_data, CGBQUAD *cgb_pal, unsigned char *tmp_idx, CGBQUAD *tmp_pal, unsigned short tiles, char status);
+void save_oam(char *fname, char *ext, unsigned char *cgb_atr, unsigned char *cgb_map, unsigned short map_size);
+void sort_palettes(CGBQUAD *cgb_pal, unsigned char used_slots, unsigned char mode);
+
 
 #endif /* BMP2CGB_H */

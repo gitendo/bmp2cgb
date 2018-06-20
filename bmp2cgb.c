@@ -2,934 +2,306 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
 #include "bmp2cgb.h"
+#include "errors.h"
 #include "rgbt.h"
 
-// globals
 
-BITMAPHEADER	*hdr = NULL;		// bmp header
-RGBQUAD			*bmiColors = NULL;	// bmp palette
-u8				*bmiData = NULL;	// bmp image data
-CGBQUAD 		*tmpColors = NULL;	// 4 color cgb style palette for each tile created from bmp
-u8				*tmpIndex = NULL;	// 'middleman' between tmpColors and cgbPalettes, supports creation of cgbAtrb
-u8				*cgbTiles = NULL;
-u8				cgbMap[MAX_MAP_SIZE];
-u8				cgbAtrb[MAX_MAP_SIZE];
-CGBQUAD 		cgbPalettes[MAX_PALETTES];
-u16				options = 0;
-
-
-void banner(void) {
-	printf("\nbmp2cgb v%.2f - 8bpp bitmap to Game Boy Color converter\n", VERSION);
-	printf("programmed by: tmk, email: tmk@tuta.io\n");
-	printf("bugs & updates: https://github.com/gitendo/bmp2cgb/\n\n");
+void banner(void)
+{
+	printf("\nbmp2cgb v%.2f - bitmap converter for Game Boy Color\n", VERSION);
+	printf("Programmed by: tmk, email: tmk@tuta.io\n");
+	printf("Project page: https://github.com/gitendo/bmp2cgb/\n\n");
 }
 
-// haelp!
-void usage(void) {
 
+
+void usage(void)
+{
 	banner();
 
-	printf("syntax: bmp2cgb.exe [options] picture[.bmp]\n\n");
-	printf("options:\n");
-	printf("\t-d  - do not optimize tileset\n");
-	printf("\t-i  - information output, no data is created\n");
-	printf("\t-p# - push map by 1-255 characters\n");
-	printf("\t-q# - push first palette to slot 1-7\n");
-	printf("\t-r# - pad map width to 32 characters with tile number 0-255\n");
-	printf("\t-t  - output RGB tuner image\n");
-	printf("\t-x  - disable horizontal flip optimization\n");
-	printf("\t-y  - disable vertical flip optimization\n");
-	printf("\t-z  - disable horizontal & vertical flip optimization\n");
-	exit(EXIT_FAILURE);
-}
-
-
-// error handler
-void error(u8 msg) {
-
-	if(msg > 0)
-		printf("Error: ");
-
-	switch(msg) {
-		case ERR_SILENT		:	break;
-		case ERR_NOT_FOUND	:	printf("Input file not found!\n"); break;
-		case ERR_MALLOC_HDR	:	printf("Memory allocation for BMP header failed!\n"); break;
-		case ERR_NOT_BMP	:	printf("BMP signature missing!\n"); break;
-		case ERR_NOT_8BPP	:	printf("Only 256 color BMPs (8 bits per pixel) are supported!\n"); break;
-		case ERR_BI_RLE		:	printf("No BMP compression is allowed!\n"); break;
-		case ERR_NOT_ROUNDED:	printf("Height and width must be a multiple of 8!\n"); break;
-		case ERR_TOO_BIG	:	printf("Image too big - character map wouldn't fit in one bank!\n"); break;
-		case ERR_MALLOC_BMIC:	printf("Memory allocation for BMP palette failed!\n"); break;
-		case ERR_MALLOC_BMID:	printf("Memory allocation for BMP data failed!"); break;
-		case ERR_MALLOC_TMPC:	printf("Memory allocation for palette helper failed!\n"); break;
-		case ERR_MALLOC_TMPI:	printf("Memory allocation for palette index failed!\n"); break;
-		case ERR_MALLOC_BMIT:	printf("Memory allocation for BMP data helper failed!\n"); break;
-		case ERR_MAX_TILES	:	printf("Maximum tiles limit exceeded!\n"); break;
-		case ERR_MALLOC_CGBT:	printf("Memory allocation for CGB tiles failed!\n"); break;
-		case ERR_PASS1		:	printf("Pass 1 failed! Maximum of 8 palettes reached!\n"); break;
-		case ERR_PASS2		:	printf("Pass 2 failed! Maximum of 8 palettes reached!\n"); break;
-		case ERR_PASS3		:	printf("Pass 3 failed! Maximum of 8 palettes reached!\n"); break;
-		case ERR_PASS4		:	printf("Pass 4 failed! Maximum of 8 palettes reached!\n"); break;
-		case ERR_TMPI_FAILED:	printf("Building palette index helper failed!\n"); break;
-		case ERR_UNK_OPTION :	printf("Invalid option!\n"); break;
-		case ERR_WRONG_PAL	:	printf("findPalette supports only 1 or 2 color palettes!\n"); break;
-		case ERR_PADDING	:	printf("Padding allowed for maps below 32 * 32 chars only!\n"); break;
-		default				:	printf("Undefined error code!\n"); break;
-	}
-
-	release();
+	printf("Syntax: bmp2cgb.exe [options] picture[.bmp]\n\n");
+	printf("Options:\n");
+	
+	printf("\t-c    disable character optimization\n");
+	printf("\t-x    disable horizontal flip optimization\n");
+	printf("\t-y    disable vertical flip optimization\n");
+	printf("\t-z    disable horizontal & vertical flip optimization\n");
+	printf("\t-o    disable palette optimization\n");
+	printf("\n");
+	printf("\t-e#   expand map width to 32 blocks using character (0-255)\n");
+	printf("\t-m#   map padding - starting character (1-511)\n");
+	printf("\t-p#   palette padding - starting slot (1-7)\n");
+	printf("\t-r    rebase character map to $8800-$97FF ($8000-$8FFF is default)\n");
+	printf("\n");
+	printf("\t-d    extended debug information without data output\n");
+	printf("\t-s#   sprites output (transparent color RGB hex value ie. 4682b4)\n");
+	printf("\t-t    RGBTuner ROM image output\n");
 
 	exit(EXIT_FAILURE);
 }
 
 
-// load bitmap header, check neccessary values, allocate memory and read data
-void loadBMP(char *fname) {
-	FILE	*ifp;
 
-	ifp = fopen(fname, "rb");
-	if(ifp == NULL)
-		error(ERR_NOT_FOUND);
+void error_handler(char status)
+{
+	char	*msg;
 
-	hdr = (BITMAPHEADER *) malloc(sizeof(BITMAPHEADER));
-	if(!hdr)
-		error(ERR_MALLOC_HDR);
-	fread(hdr, sizeof(BITMAPHEADER), 1, ifp);
+	switch(status)
+	{
+		case ERR_UNK_OPTION :	msg = "Invalid option!\n"; break;
+		case ERR_NOT_FOUND	:	msg = "Input file not found or access denied!\n"; break;
+		case ERR_MALLOC_HDR	:	msg = "Memory allocation for BITMAPFILEHEADER failed!\n"; break;
+		case ERR_NOT_BMP	:	msg = "BMP signature missing!\n"; break;
+		case ERR_MALLOC_NFO	:	msg = "Memory allocation for BITMAPINFOHEADER failed!\n"; break;
+		case ERR_NO_NFOHDR	:	msg = "Unsupported bitmap type, BITMAPINFOHEADER not found!\n"; break;
+		case ERR_NOT_ROUNDED:	msg = "Height and width must be a multiple of 8!\n"; break;
+		case ERR_TOO_BIG	:	msg = "Image too big - character map exceeds bank size!\n"; break;
+		case ERR_COMPRESSED	:	msg = "Compression method is not supported!\n"; break;
+		case ERR_MALLOC_BMPD:	msg = "Memory allocation for BMP data failed!\n"; break;
+		case ERR_NOT_SUPRTD	:	msg = "Unsupported / unknown bitmap type!\n"; break;
+		case ERR_MAX_COLS1	:	msg = "No more than 32 unique colors are allowed!\n"; break;
+		case ERR_BITFIELDS	:	msg = "Unsupported BITFIELD size, only 8 bit masks are valid!\n"; break;
+		case ERR_TRNSP		:	msg = "Transparent color not found in bitmap palette!\n"; break;
+		case ERR_PADDING	:	msg = "Padding allowed for maps below 32 * 32 blocks only!\n"; break;
+		case ERR_MALLOC_TMPD:	msg = "Memory allocation for BMP data helper failed!\n"; break;
+		case ERR_MALLOC_TMPC:	msg = "Memory allocation for palette helper failed!\n"; break;
+		case ERR_MAX_COLS2	:	return; break;							
+		case ERR_MALLOC_TMPI:	msg = "Memory allocation for palette index failed!\n"; break;
+		case ERR_PASS		:	msg = "Maximum of 8 palettes reached!\n"; break;
+		case ERR_PASS1		:	msg = "Pass 1 failed! Maximum of 8 palettes reached!\n"; break;
+		case ERR_PASS2		:	msg = "Pass 2 failed! Maximum of 8 palettes reached!\n"; break;
+		case ERR_PASS3		:	msg = "Pass 3 failed! Maximum of 8 palettes reached!\n"; break;
+		case ERR_PASS4		:	msg = "Pass 4 failed! Maximum of 8 palettes reached!\n"; break;
+		case ERR_TMPI_FAILED:	msg = "Building palette index helper failed!\n"; break;
+		case ERR_WRONG_PAL	:	msg = "find_palette() supports only 1 or 2 color palettes!\n"; break;
+		case ERR_MAX_TILES	:	msg = "Maximum characters limit exceeded!\n"; break;
+		case ERR_MALLOC_CGBT:	msg = "Memory allocation for CGB tiles failed!\n"; break;
+		default				:	msg = "Undefined error code!\n"; break;
+	}
 
-	if (hdr->bfType != 0x4D42)
-		error(ERR_NOT_BMP);
-
-	if (hdr->biBitCount != 8)
-		error(ERR_NOT_8BPP);
-
-	if (hdr->biCompression != BI_RGB)
-		error(ERR_BI_RLE);
-
-	if ((hdr->biWidth & 7) || (hdr->biHeight & 7))
-		error(ERR_NOT_ROUNDED);
-
-	if ((hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT) > MAX_MAP_SIZE)
-		error(ERR_TOO_BIG);
-
-	bmiColors = (RGBQUAD *) malloc(sizeof(RGBQUAD) * BI_COLORS);
-	if (!bmiColors)
-		error(ERR_MALLOC_BMIC);
-	fread(bmiColors, sizeof(RGBQUAD), BI_COLORS, ifp);
-
-	bmiData = (u8 *) malloc(hdr->biWidth * hdr->biHeight);
-	if (!bmiData)
-		error(ERR_MALLOC_BMID);
-	fread(bmiData, hdr->biWidth, hdr->biHeight, ifp);
-
-	fclose(ifp);
-
-	printf("Bitmap size: %d * %d px\n", hdr->biWidth, hdr->biHeight);
-	printf("Character/Attribute map: %d * %d chars\n", hdr->biWidth / 8, hdr->biHeight / 8);
+	printf("\nError: %s", msg);
+	return;
 }
 
 
-// flip bitmap and convert it to tile mode for further processing
-// looks a bit messy? maybe i'll fix it someday :)
-void prepareBMP(void) {
-	u8	tmp, *bmiDataTmp = NULL;
-	u32 x, y, map_x, map_y, tmp_x, tmp_y;
 
-	// "upside-down" to normal image raster scan order
-	for(y = 0; y < (hdr->biHeight / 2); y++) {
-		for(x = 0; x < hdr->biWidth; x++) {
-			tmp = bmiData[(y * hdr->biWidth) + x];
- 			bmiData[(y * hdr->biWidth) + x] = bmiData[((hdr->biHeight - y) * hdr->biWidth - hdr->biWidth) + x];
-			bmiData[((hdr->biHeight - y) * hdr->biWidth - hdr->biWidth) + x] = tmp;
-		}
-	}
+void save(char *fname, char *ext, void *src, int size)
+{
+	char 	fn[FILENAME_MAX];
+	FILE 	*fp = NULL;
 
-	bmiDataTmp = (u8 *) malloc(hdr->biWidth * hdr->biHeight);
-	if (!bmiDataTmp)
-		error(ERR_MALLOC_BMIT);
+	strcpy(fn, fname);													
+	strcat(fn, ext);													
 
-	// linear to tile conversion
-	for(map_y = 0; map_y < (hdr->biHeight / TILE_HEIGHT); map_y++) {
-		tmp_y = map_y * TILE_HEIGHT * hdr->biWidth;
-		for(map_x = 0; map_x < (hdr->biWidth / TILE_WIDTH); map_x++) {
-			tmp_x = map_x * TILE_WIDTH;
-			for(y = 0; y < TILE_HEIGHT; y++) {
-				for(x = 0; x < TILE_WIDTH; x++) {
-					bmiDataTmp[tmp_y + tmp_x * TILE_HEIGHT + y * TILE_HEIGHT + x] = \
-					bmiData[tmp_y + tmp_x + y * hdr->biWidth + x];
-				}
-			}
-		}
-	}
-
-	memcpy(bmiData, bmiDataTmp, (hdr->biWidth * hdr->biHeight));
-	free(bmiDataTmp);
+	fp = fopen(fn, "wb");												
+	fwrite(src, size, 1, fp);
+	fclose(fp);
 }
 
 
-// pre converts bitmap data: creates and sorts palette for each tile, then remaps tile and checks if it contains no more than 4 colors
-void processBMP(void) {
-	u8	used, tmp;
-	u8	palette[256] = {0};
-	u16 map_x, map_y, *ptr, row, rgb15, tile;
-	u16 tiles = (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT);
-	u32 index, i, j;
-	// debug stuff
-	char rgb[9] = {0}, colors[64*sizeof(rgb)];
 
-	tmpColors = (CGBQUAD *) malloc(sizeof(CGBQUAD) * (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT));
-	if (!tmpColors)
-		error(ERR_MALLOC_TMPC);
+void make_rgbt(unsigned char *rgbtuner, unsigned char *cgb_chr, unsigned char *cgb_map, unsigned char *cgb_atr, CGBQUAD *cgb_pal, unsigned short map_height, unsigned short map_width, unsigned short used_tiles)
+{
+	unsigned char	*dst, *src, size;
+	unsigned short	crc = 0, i;
 
-	memset(tmpColors, 0xff, sizeof(CGBQUAD) * (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT));
+	memcpy(&rgbtuner[PAL_DATA], cgb_pal, sizeof(CGBQUAD) * MAX_SLOTS);	
 
-	for(tile = 0; tile < tiles; tile++){
-		index = tile * BI_TILE_SIZE;
-		// reset palette LUT to default
-		memset(palette, 0xFF, sizeof(palette));
-
-		// use palette LUT to mark all colors used in tile (color = index)
-		for(i = 0; i < BI_TILE_SIZE; i++){
-			tmp = bmiData[index + i];
-			palette[tmp] = 0;
-		}
-		// tmpColors contains 4 color (15 bit) cgb palette for each tile
-		ptr = (u16*) &tmpColors[tile];
-
-		// count, enumerate and store first 4 colors used in tile
-		used = 0;
-		memset(colors, 0, sizeof(colors));
-		for(i = 0; i < sizeof(palette); i++) {
-			if(palette[i] == 0) {
-				if(used < 4) {
-					rgb15 = (bmiColors[i].rgbBlue >> 3) << 10 | (bmiColors[i].rgbGreen >> 3) << 5 | (bmiColors[i].rgbRed >> 3);
-					ptr[used] = rgb15;
-				}
-				snprintf(rgb, sizeof(rgb), "#%02x%02x%02x ", bmiColors[i].rgbRed, bmiColors[i].rgbGreen, bmiColors[i].rgbBlue);
-				strcat(colors, rgb);
-				used++;
-			}
-		}
-
-		// debug
-		if(used > 4) {
-			row = (hdr->biWidth / TILE_WIDTH);
-			map_x = (tile - (tile / row * row)) * TILE_WIDTH;
-			map_y = (tile / row) * TILE_HEIGHT;
-			printf("Error: Tile at %d * %d uses %d colors: %s\n", map_x, map_y, used, colors);
-			if((options & FLAG_INFO) == 0)
-				error(ERR_SILENT);
-		}
-
-		// bubble sort palette entries to allow further removal of duplicates
-		for(i = 1; i < 4; ++i) {
-			for(j = 4 - 1; j >= i; --j) {
-				// compare adjacent elements
-				if(ptr[j - 1] > ptr[j]) {
-					// exchange elements
-					rgb15 = ptr[j - 1];
-					ptr[j - 1] = ptr[j];
-					ptr[j] = rgb15;
-				}
-			}
-		}
-
-		// reorder used colors according to sorted palette
-		for(i = 0; i < sizeof(palette); i++) {
-			if(palette[i] == 0) {
-				rgb15 = (bmiColors[i].rgbBlue >> 3) << 10 | (bmiColors[i].rgbGreen >> 3) << 5 | (bmiColors[i].rgbRed >> 3);
-				for(j = 0; j < 4; j++) {
-					if(ptr[j] == rgb15)
-						palette[i] = j;
-				}
-			}
-		}
-
-		// prepare tile for 8 -> 1 bit conversion applying new color map
-		for(i = 0; i < BI_TILE_SIZE; i++){
-			tmp = bmiData[index + i];
-			bmiData[index + i] = palette[tmp];
-		}
-	}
-}
-
-
-// removes duplicates and shrinks palettes below 4 colors, generates sorted cgbPalettes and tmpIndex
-u8 createPalettes(u8 slot) {
-	u8 match = 0, colors_used, empty, palette, palettes_used, pidx, cidx;
-	u16 i, *dst, *src, tile;
-	u16 tiles = (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT);
-
-	tmpIndex = malloc(sizeof(u8) * (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT));
-	if (!tmpIndex)
-		error(ERR_MALLOC_TMPI);
-
-	memset(cgbPalettes, 0xff, sizeof(CGBQUAD) * MAX_PALETTES);
-
-	palettes_used = slot;
-	
-	// 1st pass
-	for(tile = 0; tile < tiles; tile++) {
-		src = (u16*) &tmpColors[tile];
-		colors_used = tileColors(src);
-
-		// process 4 colors palettes only
-		if(colors_used == 4) {
-			dst = (u16*) &cgbPalettes[palettes_used];
-			// first palette can be copied w/out checking
-			if(palettes_used == 0) {
-				memcpy(dst, src, colors_used * 2);
-				palettes_used++;
-			} else { // another palettes are checked before being copied
-				u32	match = 0;	// satisfy GCC ver of memcmp
-				for(i = 0; i < palettes_used; i++) {
-					match = memcmp(&cgbPalettes[i], &tmpColors[tile], 8);
-					if(match == 0)
-						break;
-				}
-
-				if(match != 0) {
-					// check if there's free space in palettes table
-					if(palettes_used < MAX_PALETTES) {
-						// copy palette
-						memcpy(dst, src, colors_used * 2);
-						palettes_used++;
-					} else {
-						error(ERR_PASS1);
-					}
-				}
-			}
-		}
-	}
-
-	// 2nd pass
-	for(tile = 0; tile < tiles; tile++) {
-
-		src = (u16*) &tmpColors[tile];
-		// count colors in palette for processed tile
-		colors_used = tileColors(src);
-
-		// process 3 colors palettes only
-		if(colors_used == 3) {
-			// first palette can be copied w/out checking
-			if(palettes_used == 0) {
-				dst = (u16*) &cgbPalettes[palettes_used];
-				memcpy(dst, src, colors_used * 2);
-				palettes_used++;
-			} else { 
-				// another palettes are checked before being copied
-				match = matchPalette(src, palettes_used, colors_used) & 0x0F;
-
-				// add palette if there's no match
-				if(match == 0) {
-					// check if there's free space in palettes table
-					if(palettes_used < MAX_PALETTES) {
-						// check if there's palette w/ common color and free slot(s)
-						empty = findPalette(src, palettes_used, colors_used);
-						// no such palette, add new entry
-						if(empty == 0) {
-							dst = (u16*) &cgbPalettes[palettes_used];
-							memcpy(dst, src, colors_used * 2);
-							palettes_used++;
-						} else {
-							palette = empty >> 4;
-							// hi - palette that has dupe color and free slot
-							dst = (u16*) &cgbPalettes[palette];
-							pidx = (empty & 0x0C) >> 2;
-							cidx = (empty & 0x03);
-							dst[pidx] = src[cidx];
-						}
-					} else {
-						error(ERR_PASS2);
-					}
-				}
-			}
-		}
-	}
-
-	// 3rd pass
-	for(tile = 0; tile < tiles; tile++) {
-
-		src = (u16*) &tmpColors[tile];
-		// count colors in palette for processed tile
-		colors_used = tileColors(src);
-
-		// process 2 colors palettes only
-		if(colors_used == 2) {
-			// first palette can be copied w/out checking
-			if(palettes_used == 0) {
-				dst = (u16*) &cgbPalettes[palettes_used];
-				memcpy(dst, src, colors_used * 2);
-				palettes_used++;
-			} else { 
-				// another palettes are checked before being copied
-				match = matchPalette(src, palettes_used, colors_used) & 0x0F;
-
-				// add palette if there's no match
-				if(match == 0) {
-					// check if there's free space in palettes table
-					if(palettes_used < MAX_PALETTES) {
-						// check if there's palette w/ common color and free slot(s)
-						empty = findPalette(src, palettes_used, colors_used);
-						// no such palette, add new entry
-						if(empty == 0) {
-							dst = (u16*) &cgbPalettes[palettes_used];
-							memcpy(dst, src, colors_used * 2);
-							palettes_used++;
-						// found free space in existing palette
-						} else {
-							palette = empty >> 4;
-							// hi - palette that has dupe color and free slot
-							dst = (u16*) &cgbPalettes[palette];
-							// index
-							pidx = (empty & 0x0C) >> 2;
-							// how many colors 1-2
-							cidx = (empty & 0x03);
-
-							switch(cidx) {
-								case 0:
-									dst[pidx] = src[cidx];
-									break;
-								case 1:
-									dst[pidx] = src[cidx];
-									break;
-								case 2:
-									dst[pidx] = src[0];
-									pidx++;
-									dst[pidx] = src[1];
-									break;
-								default:
-									break;
-							}
-						}
-					} else {
-						error(ERR_PASS3);
-					}
-				}
-			}
-		}
-	}
-
-	// 4th pass
-	for(tile = 0; tile < tiles; tile++) {
-
-		src = (u16*) &tmpColors[tile];
-		// count colors in palette for processed tile
-		colors_used = tileColors(src);
-
-		// process 1 color palettes only
-		if(colors_used == 1) {
-			// first palette can be copied w/out checking
-			if(palettes_used == 0) {
-				dst = (u16*) &cgbPalettes[palettes_used];
-				dst[0] = src[0];
-				palettes_used++;
-			} else { 
-				// another palettes are checked before being copied
-				match = matchPalette(src, palettes_used, colors_used) & 0x0F;
-
-				// add palette if there's no match
-				if(match == 0) {
-					// check if there's free space in palettes table
-					if(palettes_used < MAX_PALETTES) {
-						// check if there's palette w/ common color and free slot(s)
-						empty = findPalette(src, palettes_used, colors_used);
-						// no such palette, add new entry
-						if(empty == 0) {
-							dst = (u16*) &cgbPalettes[palettes_used];
-							dst[0] = src[0];
-							palettes_used++;
-						} else {
-							palette = empty >> 4;
-							// hi - palette that has dupe color and free slot
-							dst = (u16*) &cgbPalettes[palette];
-							pidx = (empty & 0x0C) >> 2;
-							cidx = (empty & 0x03);
-							dst[pidx] = src[cidx];
-						}
-					} else {
-						error(ERR_PASS4);
-					}
-				}
-			}
-		}
-	}
-	// sort palettes
-	bubbleSort(palettes_used);
-
-	// index tmpColors according to newly created cgbPalettes, this LUT will simplify creating cgbAtrb later on
-	for(tile = 0; tile < tiles; tile++) {
-		src = (u16*) &tmpColors[tile];
-		colors_used = tileColors(src);
-		match = matchPalette(src, palettes_used, colors_used);
-		palette = (match & 0xF0) >> 4;
-		match = match & 0x0F;
-
-		if(match == 1) {
-			tmpIndex[tile] = palette;
-		} else {
-			error(ERR_TMPI_FAILED);
-		}
-	}
-
-	printf("Palettes usage: %d/8 slots\n", palettes_used - slot);
-	return palettes_used - slot;
-}
-
-
-// find duplicate entries and/or free space in cgbPalettes to fit new 2 and 1 color palettes
-// return: 0 if there's no match; hi - matching palette, lo: hi - free entry index, lo - color(s)
-u8 findPalette(u16 *src, u8 palettes_used, u8 colors_used) {
-	u8 i, j, k, empty = 0, match, v1 = 0xFF, v2 = 0xFF, v3c = 0, v3i = 0;
-	u16 *dst;
-
-	for(i = 0; i < palettes_used; i++) {
-		dst = (u16*) &cgbPalettes[i];
-		for(j = 0; j < colors_used; j++) {
-			empty = 0;
-			match = 0;
-			// color by color, they might be on different positions
-			for(k = 0; k < 4; k++) {
-				if(dst[k] == src[j])
-					match++;
-				if(dst[k] == 0xFFFF)
-					empty++;
-			}
-			switch(colors_used) {
-				case 1:
-					if(match == 0 && empty > 0) // 1 color palette not found by matchPalette()
-						return (i << 4 | (4 - empty) << 2); // hi - palette, lo : hi - index, lo = 0, doesn't matter
-					break;
-				case 2:
-					if(match == 1 && empty > 0) // 2 colors palette - add 1 color
-						v1 = j ^ 1; // not one that matches but the other
-					if(match == 0 && empty == 2) // 2 colors palette - add 2 colors
-						v2 = 2; // copy both
-					break;
-				case 3:
-					if(match == 0 && empty == 1) {// 3 colors palette - add 1 color
-						v3c++;	// counter, we need exactly 1 match
-						v3i = j; // color index
-					}
-					break;
-				default:
-					error(ERR_WRONG_PAL);
-					break;
-			}
-		}
-		// this is to prevent returninig first solution found for 2 colors palette, we want best possible ie. v1
-		if(v1 != 0xFF)
-			return (i << 4 | (4 - empty) << 2 | v1);	// hi - palette, lo : hi - index, lo - color to store
-		if(v2 != 0xFF)
-			return (i << 4 | (4 - empty) << 2 | v2); // hi - palette, lo : hi - index, lo = 2 colors
-		if(v3c == 1) // 3 colors palette, empty can be only last entry
-			return (i << 4 | 3 << 2 | v3i);					
-	}
-	return 0;
-}
-
-
-// find duplicate palette entries in cgbPalettes
-// return: 0 if there's no match; hi - matching palette, lo - 1 if it's a dupe
-u8 matchPalette(u16 *src, u8 palettes_used, u8 colors_used) {
-	u8 i, j, k, match = 0;
-	u16 *dst;
-
-	for(i = 0; i < palettes_used; i++) {
-		dst = (u16*) &cgbPalettes[i];
-		match = 0;
-		for(j = 0; j < colors_used; j++) {
-			// color by color, they might be on different positions
-			for(k = 0; k < 4; k++) {
-				if(dst[k] == src[j])
-					match++;
-			}
-		}
-		// no need to continue, we have dupe
-		if(match == colors_used) {
-			match = (i << 4) | 1;
-			return match;
-		}
-	}
-
-	return 0;
-}
-
-
-// sort palette entries low to high, because i can..
-void bubbleSort(u8 palettes_used) {
-	u8 i, j, k;
-	u16 color, *ptr;
-
-	for(i = 0; i < palettes_used; i++) {
-		ptr = (u16*) &cgbPalettes[i];
-		for(j = 1; j < 4; ++j) {
-			for(k = 4 - 1; k >= j; --k) {
-				// compare adjacent elements
-				if(ptr[k - 1] > ptr[k]) {
-					// exchange elements
-					color = ptr[k - 1];
-					ptr[k - 1] = ptr[k];
-					ptr[k] = color;
-				}
-			}
-		}
-	}
-}
-
-
-// remap color entries in every tile according to its entry in cgbPalettes
-void remapTiles(void) {
-	u8 color, colors_used, index, *ptr;
-	u8 palette[4] = {0};
-	u16 i, j, *dst, *src, tile;
-	u16 tiles = (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT);
-	
-	for(tile = 0; tile < tiles; tile++) {
-		src = (u16*) &tmpColors[tile];
-		colors_used = tileColors(src);
-		index = tmpIndex[tile];
-		dst = (u16*) &cgbPalettes[index];
-
-		for(i = 0; i < colors_used; i++) {
-			for(j = 0; j < 4; j++) {
-				if(dst[j] == src[i])
-					palette[i] = j;
-			}
-		}
-
-		ptr = (u8*) &bmiData[tile * BI_TILE_SIZE];
-
-		for(i = 0; i < BI_TILE_SIZE; i++) {
-			color = ptr[i];
-			ptr[i] = palette[color];
-		}
-	}
-}
-
-
-// counts colors used in one tile
-// return: number of colors
-u8 tileColors(u16 *src) {
-	u8 i, used = 0;
-
-	for(i = 0; i < MAX_COLORS; i++) {
-		if(src[i] == 0xFFFF)
-			break;
-		used++;
-	}
-
-	return used;
-}
-
-
-// creates map, attr and finalizes tileset conversion
-// return: tiles used after optimization
-u16 convertData(u8 padding) {
-	u8 bank = 0, flip, hi, lo, *src, *dst;
-	u8 normal[64], x_flipped[64], y_flipped[64], xy_flipped[64];
-	u16 i, j, k, dupes[4], tile, tiles_used;
-	u16 tiles = (hdr->biWidth / TILE_WIDTH) * (hdr->biHeight / TILE_HEIGHT);
-	u32 index, match; // satisfy GCC ver of memcmp
-
-	memset(cgbMap, 0, MAX_MAP_SIZE);
-	memset(cgbAtrb, 0, MAX_MAP_SIZE);
-	memset(dupes, 0, sizeof(dupes));
-	tiles_used = 0;
-
-	// process all tiles
-	for(tile = 0; tile < tiles; tile++) {
-
-		index = tile * BI_TILE_SIZE;
-
-		// create copy of a tile
-		memcpy(&normal, &bmiData[index], sizeof(normal));
-
-		// create x flipped tile
-		for(i = 0; i < TILE_HEIGHT; i++){
-			src = &normal[i * TILE_HEIGHT];
-			dst = &x_flipped[i * TILE_HEIGHT];
-			for(j = TILE_WIDTH; j > 0; j--){
-				dst[TILE_WIDTH - j] = src[j - 1];
-			}
-		}
-		
-		// create y flipped tile
-		for(i = TILE_HEIGHT; i > 0; i--){
-			src = &normal[i * TILE_HEIGHT - TILE_WIDTH];
-			dst = &y_flipped[(TILE_HEIGHT - i) * TILE_HEIGHT];
-			memcpy(dst, src, TILE_WIDTH);
-		}
-
-		// create x/y flipped tile mod
-		for(i = 0; i < TILE_HEIGHT; i++){
-			src = &y_flipped[i * TILE_HEIGHT];
-			dst = &xy_flipped[i * TILE_HEIGHT];
-			for(j = TILE_WIDTH; j > 0; j--){
-				dst[TILE_WIDTH - j] = src[j - 1];
-			}
-		}
-
-		flip = 1;
-		// check if any variant of processed tile already exists in table
-		for(i = 0; i < tiles_used; i++) {
-			src = &bmiData[i * BI_TILE_SIZE];
-
-			if((options & FLAG_DUPE) != 0) {
-				break;
-			}
-
-			match = memcmp(src, normal, BI_TILE_SIZE);
-			if(match == 0) {
-				++dupes[0];
-				flip = 0;
-				break;
-			}
-
-			if((options & FLAG_FLIPX) == 0) {
-				match = memcmp(src, x_flipped, BI_TILE_SIZE);
-				if(match == 0) {
-					++dupes[1];
-					flip = 32;
-					break;
-				}
-			}
-
-			if((options & FLAG_FLIPY) == 0) {
-				match = memcmp(src, y_flipped, BI_TILE_SIZE);
-				if(match == 0) {
-					++dupes[2];
-					flip = 64;
-					break;
-				}
-			}
-
-			if((options & FLAG_FLIPXY) == 0) {
-				match = memcmp(src, xy_flipped, BI_TILE_SIZE);
-				if(match == 0) {
-					++dupes[3];
-					flip = 96;
-					break;
-				}
-			}
-		}
-
-		if(flip == 1) {
-			if(tiles_used + padding < MAX_TILES) {
-				dst = (u8*) &bmiData[tiles_used * BI_TILE_SIZE];
-				memcpy(dst, normal, BI_TILE_SIZE);
-				cgbMap[tile] = (tiles_used + padding) & 0xFF;
-				flip--;
-				bank = ((tiles_used + padding) & 0xFF00) >> 5;
-				tiles_used++;
-			} else {
-				error(ERR_MAX_TILES);
-			}
-		} else {
-			cgbMap[tile] = (i + padding) & 0xFF;
-			bank = ((i + padding) & 0xFF00) >> 5;
-		}
-		// refer to cgb manual
-		cgbAtrb[tile] = tmpIndex[tile] + bank + flip;
-	}
-
-	cgbTiles = (u8 *) malloc(tiles_used * CGB_TILE_SIZE);
-	if (!cgbTiles)
-		error(ERR_MALLOC_CGBT);
-
-	// convert 8bpp to interleaved 1bpp gb style
-	for(i = 0; i < tiles_used; i++) {
-		dst = cgbTiles + (i * 16);
-		for(j = 0; j < TILE_HEIGHT; j++) {
-			lo = 0;
-			hi = 0;
-			src = (u8*) &bmiData[(i * BI_TILE_SIZE) + (j * 8)];
-			for(k = 0; k < TILE_WIDTH; k++) {
-				lo = (lo << 1) | (src[k] & 0x01);
-				hi = (hi << 1) | (src[k] & 0x02) >> 1;
-			}
-			dst[j*2] = lo;
-			dst[(j*2)+1] = hi;
-		}
-	}
-	printf("Tiles used: %d (%d duplicates removed: %d normal, %d horizontal, %d vertical, %d horizontal & vertical)\n", tiles_used, tiles - tiles_used, dupes[0], dupes[1], dupes[2], dupes[3]);
-	return tiles_used;
-}
-
-
-// pad map below 32 tiles width
-u8 padmaps(u8 chr) {
-
-	u8 i, map_x, map_y, padding, *dst, *src;
-
-	map_x = hdr->biWidth / TILE_WIDTH;
-	map_y = hdr->biHeight / TILE_HEIGHT;
-	if(map_x >= CGB_MAP_X || map_y >= CGB_MAP_Y)
-		error(ERR_PADDING);
-	padding = CGB_MAP_X - map_x;
-
-	for(i = map_y; i > 0; i--) {
-		src = &cgbMap[(i - 1) * map_x];
-		dst = &cgbMap[(i - 1) * CGB_MAP_X];
-		memmove(dst, src, map_x);
-		memset((dst + map_x), chr, padding);
-
-		src = &cgbAtrb[(i - 1) * map_x];
-		dst = &cgbAtrb[(i - 1) * CGB_MAP_X];
-		memmove(dst, src, map_x);
-		memset((dst + map_x), 0, padding);
-	}
-
-	return padding;
-}
-
-
-// write data to input file name with proper extension
-void save(char *fname, char *ext, void *src, u16 size) {
-
-	char ofn[FILENAME_MAX];
-	FILE *ofp = NULL;
-
-	strcpy(ofn, fname);
-	strcat(ofn, ext);
-
-	ofp = fopen(ofn, "wb");
-	fwrite(src, size, 1, ofp);
-	fclose(ofp);
-}
-
-// patch rom image with converted data and update checksum
-void make_rgbt(u16 tiles_used) {
-
-	u8 i, map_x, map_y, row, *dst, *src;
-	u16 *ptr, j, crc = 0;
-
-	memcpy(&rgbt[PAL_DATA], &cgbPalettes, sizeof(CGBQUAD) * MAX_PALETTES);
-
-	map_x = hdr->biWidth / TILE_WIDTH;
-	map_y = hdr->biHeight / TILE_HEIGHT;
-
-	if(map_x >= CGB_MAP_X)
-		row = CGB_MAP_X;
+	if(map_width > 32)													
+		size = 32;
 	else
-		row = map_x;
+		size = (unsigned char) map_width;
 
-	if(map_y >= CGB_MAP_Y)
-		map_y = CGB_MAP_Y;
+	if(map_height > 32)
+		map_height = 32;
 	
-	for(i = 0; i < map_y; i++) {
-		src = &cgbMap[i * map_x];
-		dst = &rgbt[MAP_DATA + (i * CGB_MAP_X)];
-		memcpy(dst, src, row);
+	for(map_height--; map_height != 0xffff; map_height--)								
+	{
+		src = &cgb_map[map_height * map_width];
+		dst = &rgbtuner[MAP_DATA + (map_height * 32)];
+		memcpy(dst, src, size);
 
-		src = &cgbAtrb[i * map_x];
-		dst = &rgbt[ATR_DATA + (i * CGB_MAP_X)];
-		memcpy(dst, src, row);
+		src = &cgb_atr[map_height * map_width];
+		dst = &rgbtuner[ATR_DATA + (map_height * 32)];
+		memcpy(dst, src, size);
 	}
 
-	memcpy(&rgbt[CHR_DATA], cgbTiles, tiles_used * CGB_TILE_SIZE);
+	memcpy(&rgbtuner[CHR_DATA], cgb_chr, used_tiles * CGB_TILE_SIZE);	
 
-	if(tiles_used > 240) {
-		ptr = (u16*)&rgbt[CHR_SIZE_VBK0];
-		*ptr = (240 * CGB_TILE_SIZE);
-		tiles_used -= 240;
-		ptr = (u16*)&rgbt[CHR_SIZE_VBK1];
-		*ptr = tiles_used * CGB_TILE_SIZE;
+	if(used_tiles > 240)												
+	{
+		*(unsigned short *) &rgbtuner[CHR_SIZE_VBK0] = 240 * CGB_TILE_SIZE;
+		used_tiles -= 240;
+		*(unsigned short *) &rgbtuner[CHR_SIZE_VBK1] = used_tiles * CGB_TILE_SIZE;
 	}
-	else {
-		ptr = (u16*)&rgbt[CHR_SIZE_VBK0];
-		*ptr = tiles_used * CGB_TILE_SIZE;
-		ptr = (u16*)&rgbt[CHR_SIZE_VBK1];
-		*ptr = 0;
+	else																
+	{
+		*(unsigned short *) &rgbtuner[CHR_SIZE_VBK0] = used_tiles * CGB_TILE_SIZE;
+		*(unsigned short *) &rgbtuner[CHR_SIZE_VBK1] = 0;
 	}
 
-	for(j = 0; j < sizeof(rgbt); j++) {
-		crc += rgbt[j];
-	}
+	for(i = 0; i < RGBT_ROM_SIZE; i++)									
+		crc += rgbtuner[i];
 
-	ptr = (u16*)&rgbt[CHECKSUM];
-	*ptr = (crc << 8) & 0xFF00 | (crc >> 8) & 0xFF;
-}
-
-// release all allocated memory before exit
-void release(void) {
-
-	if(hdr != NULL)
-		free(hdr);
-	if(bmiColors != NULL)
-		free(bmiColors);
-	if(bmiData != NULL)
-		free(bmiData);
-	if(tmpColors != NULL)
-		free(tmpColors);
-	if(tmpIndex != NULL)
-		free(tmpIndex);
-	if(cgbTiles != NULL)
-		free(cgbTiles);
+	*(unsigned short *) &rgbtuner[CHECKSUM] = (crc << 8) & 0xff00 | (crc >> 8) & 0xff;
 }
 
 
-int main (int argc, char *argv[]) {
+void release(unsigned char **bmp_data, CGBQUAD **tmp_pal, unsigned char	**tmp_idx, unsigned char **cgb_chr)
+{
+	if(*bmp_data != NULL)
+		free(*bmp_data);
+	if(*tmp_pal != NULL)
+		free(*tmp_pal);
+	if(*tmp_idx != NULL)
+		free(*tmp_idx);
+	if(*cgb_chr != NULL)
+		free(*cgb_chr);
+}
 
-	char *pos;	
-	u8 arg, chr = 0, fname = 0, padding = 0, palettes_used, slot = 0;
-	u16	tiles_used;
+
+int main (int argc, char *argv[])
+{
+	BITMAPFILEHEADER	*header = NULL;
+	BITMAPINFOHEADER	*info = NULL;
+	RGBQUAD				bmp_pal[256];
+	unsigned char		*bmp_data = NULL;
+
+	CGBQUAD				*tmp_pal = NULL;								
+	unsigned char		*tmp_idx = NULL;								
+
+	unsigned char		*cgb_chr = NULL;
+	unsigned char		cgb_atr[MAX_MAP_SIZE];
+	unsigned char		cgb_map[MAX_MAP_SIZE];
+	CGBQUAD 			cgb_pal[MAX_SLOTS] = {0};
+
+	char				arg, fname = 0, match, status;
+	unsigned char		chr = 0, slot = 0, used_slots;
+	unsigned short		i, width, height, columns, rows, options = 0, padding = 0, used_tiles = 0;
+	unsigned int		rgbhex = 0;
+
 
 	if(argc < 2)
 		usage();
 
-	for(arg = 1; arg < argc; arg++) {
-		if((argv[arg][0] == '-') || (argv[arg][0] == '/')) {
-			switch(tolower(argv[arg][1])) {
-				case 'i': options |= FLAG_INFO; break;
-				case 'd': options |= FLAG_DUPE; break;
-				case 'p': options |= FLAG_PUSH; padding = atoi(&argv[arg][2]); break;
-				case 'q': options |= FLAG_PAL; slot = atoi(&argv[arg][2]) & 7; break;
-				case 'r': options |= FLAG_PAD; chr = atoi(&argv[arg][2]); break;
-				case 't': options |= FLAG_RGBT | FLAG_PUSH; padding = 0x10; break;
+	for(arg = 1; arg < argc; arg++)
+	{
+		if((argv[arg][0] == '-') || (argv[arg][0] == '/'))
+		{
+			switch(tolower(argv[arg][1]))
+			{
+				case 'c': options |= FLAG_DUMP; break;
+				case 'd': options |= FLAG_DEBUG; break;
+				case 'e': options |= FLAG_EXPAND; chr = (unsigned char) atoi(&argv[arg][2]); break;
+				case 'm': options |= FLAG_MPAD; padding = (unsigned short) ((atoi(&argv[arg][2])) & 0x1ff); break;
+				case 'o': options |= FLAG_UNOPT; break;
+				case 'p': options |= FLAG_PPAD; slot = (unsigned char) (atoi(&argv[arg][2]) & 7); break;
+				case 'r': options |= FLAG_REBASE; break;
+				case 's': options |= FLAG_OBJ; rgbhex = (strtol(&argv[arg][2], NULL, 16) & 0xffffff) | 1UL << 24; break;
+				case 't': options |= FLAG_TUNER | FLAG_MPAD; padding = 0x10; break;	
 				case 'x': options |= FLAG_FLIPX; break;
 				case 'y': options |= FLAG_FLIPY; break;
 				case 'z': options |= FLAG_FLIPXY; break;
-				default: error(ERR_UNK_OPTION); break;
+
+				default: error_handler(ERR_UNK_OPTION); break;
 			}
-		} else {
+		}
+		else
 			fname = arg;
-		}
 	}
 
-	if((options & FLAG_INFO) == 0)
-		banner();
 
-	loadBMP(argv[fname]);
-	prepareBMP();
-	processBMP();
-	palettes_used = createPalettes(slot);
-	remapTiles();
-	tiles_used = convertData(padding);
 
-	if((options & FLAG_PAD) != 0)
-		padding = padmaps(chr);
-	else
-		padding = 0;
 
-	if((options & FLAG_INFO) == 0) {
-		pos = strstr(argv[fname], ".bmp");
-		if(pos != NULL)
-			pos[0] = 0;
+	status = process_bmp(argv[fname], &header, &info, bmp_pal, &bmp_data, &width, &height);
 
-		save(argv[fname], EXT_ATRB, cgbAtrb, ((hdr->biWidth / TILE_WIDTH) + padding) * (hdr->biHeight / TILE_HEIGHT));
-		save(argv[fname], EXT_MAP, cgbMap, ((hdr->biWidth / TILE_WIDTH) + padding) * (hdr->biHeight / TILE_HEIGHT));
-		save(argv[fname], EXT_TILES, cgbTiles, tiles_used * CGB_TILE_SIZE);
-		if((options & FLAG_RGBT) == 0) {
-			save(argv[fname], EXT_PALETTES, &cgbPalettes[slot], sizeof(CGBQUAD) * palettes_used);
+	if(header != NULL)													
+		free(header);
+	if(info != NULL)
+		free(info);
+
+	rows = (unsigned short) (height / TILE_WIDTH);						
+	columns = (unsigned short) (width / TILE_HEIGHT);
+
+	if(options & FLAG_OBJ)												
+	{
+		match = 0;
+		unsigned char *rgb = (unsigned char *) &rgbhex;
+		for(i = 0; i < 256; i++)
+		{
+			if(bmp_pal[i].red == rgb[0] && bmp_pal[i].green == rgb[1] && bmp_pal[i].blue == rgb[2])
+			{
+				match++;
+				break;
+			}
 		}
-		else {
-			make_rgbt(tiles_used);
-			save(argv[fname], EXT_RGBT, rgbt, sizeof(rgbt));
-		}
+
+		if(match == 0)
+			status = ERR_TRNSP;
 	}
 
-	release();
+	if(options & FLAG_EXPAND)
+	{
+		if(columns >= 32)
+			status = ERR_PADDING;
+	}
+
+	status = create_tiles(bmp_data, width, height, status);
+	status = optimize(bmp_data, bmp_pal, &tmp_pal, rows, columns, rgbhex, options, status);
+
+	used_slots = slot;
+
+	status = create_palettes(cgb_pal, &tmp_idx, tmp_pal, rows * columns, &used_slots, options, status);
+	remap_colors(bmp_data, cgb_pal, tmp_idx, tmp_pal, rows * columns, status);
+	status = convert(bmp_data, &cgb_chr, cgb_map, cgb_atr, tmp_idx, rows * columns, padding, &used_tiles, options, status);
+
+	if(options & FLAG_EXPAND)
+	{
+		expand_maps(cgb_map, cgb_atr, columns, rows, chr, status);		
+		columns = 32;
+	}
+
+	if(status)
+	{
+		error_handler(status);
+		release(&bmp_data, &tmp_pal, &tmp_idx, &cgb_chr);
+		exit(EXIT_FAILURE);
+	}
+
+	if(!(options & FLAG_DEBUG))
+	{
+		char *ext = strstr(argv[fname], ".bmp");						
+		if(ext)
+			ext[0] = 0;													
+
+		save(argv[fname], EXT_CHR, cgb_chr, used_tiles * CGB_TILE_SIZE);
+
+		if(options & FLAG_OBJ)
+		{
+			save_oam(argv[fname], EXT_TXT, cgb_atr, cgb_map, rows * columns);
+		}
+		else
+		{
+			save(argv[fname], EXT_ATR, cgb_atr, rows * columns);
+
+			if(options & FLAG_REBASE)
+				rebase(cgb_map, rows * columns);
+
+			save(argv[fname], EXT_MAP, cgb_map, rows * columns);
+		}
+
+		if(options & FLAG_TUNER)
+		{
+			make_rgbt(rgbt, cgb_chr, cgb_map, cgb_atr, cgb_pal, rows, columns, used_tiles);
+			save(argv[fname], EXT_GBC, rgbt, sizeof(rgbt));
+		}
+		else
+			save(argv[fname], EXT_PAL, &cgb_pal[slot], sizeof(CGBQUAD) * (used_slots - slot));
+	}
+
+	release(&bmp_data, &tmp_pal, &tmp_idx, &cgb_chr);
 
 	exit(EXIT_SUCCESS);
 }
