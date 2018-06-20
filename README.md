@@ -1,4 +1,4 @@
-# bmp2cgb v1.3 ![standard](https://img.shields.io/badge/standard-C11-blue.svg?longCache=true&style=flat) ![dependencies](https://img.shields.io/badge/dependencies-none-green.svg?longCache=true&style=flat) ![status](https://img.shields.io/badge/status-working-green.svg?longCache=true&style=flat)
+# bmp2cgb v1.2 ![standard](https://img.shields.io/badge/standard-C11-blue.svg?longCache=true&style=flat) ![dependencies](https://img.shields.io/badge/dependencies-none-green.svg?longCache=true&style=flat) ![status](https://img.shields.io/badge/status-working-green.svg?longCache=true&style=flat)
 
 Complete solution for converting graphics and real time palette adjustments for Game Boy Color. Heavily inspired by original utility created by Ars of [Fatality](http://speccy.info/Fatality) in 1999. It's tiny, fast, command line driven and doesn't require any dependencies, so you can compile it without any problems on Windows or *nix systems.
 
@@ -21,7 +21,7 @@ r    rebase character map to $8800-$97FF ($8000-$8FFF is default)
 -t    RGBTuner ROM image output\n");
 ```
 
-You can read [the manual](...) if you need more detailed explanation or don't know how to use it.
+You can read [the manual](MANUAL.md) if you need more detailed explanation or don't know how to use it.
 
 ### Recent changes :
 - rewritten and restructured code with some optimizations
