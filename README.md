@@ -11,10 +11,10 @@ Complete solution for converting graphics and real time palette adjustments for 
 -z    disable horizontal & vertical flip optimization
 -o    disable palette optimization
 
-e#   expand map width to 32 blocks using character (0-255)
-m#   map padding - starting character (1-511)
-p#   palette padding - starting slot (1-7)
-r    rebase character map to $8800-$97FF ($8000-$8FFF is default)
+-e#   expand map width to 32 blocks using character (0-255)
+-m#   map padding - starting character (1-511)
+-p#   palette padding - starting slot (1-7)
+-r    rebase character map to $8800-$97FF ($8000-$8FFF is default)
 
 -d    extended debug information without data output
 -s#   sprites output (transparent color RGB hex value ie. 4682b4)
