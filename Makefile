@@ -1,4 +1,4 @@
-CFLAGS = -Wall
+CFLAGS = -Wall -Wextra
 
 SOURCES = $(wildcard *.c)
 OBJS = $(patsubst %.c, %.o, $(SOURCES))
