@@ -826,23 +826,23 @@ void expand_maps(unsigned char *cgb_map, unsigned char *cgb_atr, unsigned short 
 	unsigned char	*dst, *src;
 
 
-	if(status)															
+	if(status)
 		return;
 
-	columns--;
-
-	for(; columns >= 0; columns--)
+	do
 	{
-		src = &cgb_map[columns * rows];							
+		columns--;
+		src = &cgb_map[columns * rows];
 		dst = &cgb_map[columns * 32];
 		memmove(dst, src, rows);
 		memset((dst + rows), chr, 32 - rows);
 
-		src = &cgb_atr[columns * rows];							
+		src = &cgb_atr[columns * rows];
 		dst = &cgb_atr[columns * 32];
 		memmove(dst, src, rows);
 		memset((dst + rows), 0, 32 - rows);
 	}
+	while (columns > 0);
 }
 
 
@@ -867,14 +867,14 @@ void save_oam(char *fname, char *ext, unsigned char *cgb_atr, unsigned char *cgb
 	{
 		if(cgb_atr[i] & 0x10)
 		{
-			cgb_atr[i] &= 0xef;											
+			cgb_atr[i] &= 0xef;
 
-			for(j = 8; j > 0; j--)										
+			for(j = 8; j > 0; j--)
 			{
-			    if (cgb_atr[i] & 1)
-        			buffer[j] = 0x31;
-			    else
-			        buffer[j] = 0x30;
+				if (cgb_atr[i] & 1)
+					buffer[j] = 0x31;
+				else
+					buffer[j] = 0x30;
 				cgb_atr[i] >>= 1;
 			}
 

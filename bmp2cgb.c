@@ -145,7 +145,7 @@ void make_rgbt(unsigned char *rgbtuner, unsigned char *cgb_chr, unsigned char *c
 	for(i = 0; i < RGBT_ROM_SIZE; i++)									
 		crc += rgbtuner[i];
 
-	*(unsigned short *) &rgbtuner[CHECKSUM] = (crc << 8) & 0xff00 | (crc >> 8) & 0xff;
+	*(unsigned short *) &rgbtuner[CHECKSUM] = ((crc << 8) & 0xff00) | ((crc >> 8) & 0xff);
 }
 
 
@@ -169,15 +169,15 @@ int main (int argc, char *argv[])
 	RGBQUAD				bmp_pal[256];
 	unsigned char		*bmp_data = NULL;
 
-	CGBQUAD				*tmp_pal = NULL;								
-	unsigned char		*tmp_idx = NULL;								
+	CGBQUAD				*tmp_pal = NULL;
+	unsigned char		*tmp_idx = NULL;
 
 	unsigned char		*cgb_chr = NULL;
 	unsigned char		cgb_atr[MAX_MAP_SIZE];
 	unsigned char		cgb_map[MAX_MAP_SIZE];
-	CGBQUAD 			cgb_pal[MAX_SLOTS] = {0};
+	CGBQUAD 			cgb_pal[MAX_SLOTS] = {{0, 0, 0, 0}};
 
-	char				arg, fname = 0, match, status;
+	int					arg, fname = 0, match, status;
 	unsigned char		chr = 0, slot = 0, used_slots;
 	unsigned short		i, width, height, columns, rows, options = 0, padding = 0, used_tiles = 0;
 	unsigned int		rgbhex = 0;
