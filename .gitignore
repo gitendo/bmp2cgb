@@ -1,2 +1,7 @@
 *.o
 bmp2cgb
+bmp2cgb.exe
+bmp2cgb2.ppj
+bmp2cgb2.ppx
+bmp2cgb2.tag
+/output
