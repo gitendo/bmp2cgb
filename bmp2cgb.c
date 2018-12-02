@@ -105,7 +105,8 @@ void save(char *fname, char *ext, void *src, int size)
 void make_rgbt(unsigned char *rgbtuner, unsigned char *cgb_chr, unsigned char *cgb_map, unsigned char *cgb_atr, CGBQUAD *cgb_pal, unsigned short map_height, unsigned short map_width, unsigned short used_tiles)
 {
 	unsigned char	*dst, *src, size;
-	unsigned short	crc = 0, i;
+	unsigned short	crc = 0;
+	size_t			i;
 
 	memcpy(&rgbtuner[PAL_DATA], cgb_pal, sizeof(CGBQUAD) * MAX_SLOTS);	
 
@@ -177,7 +178,7 @@ int main (int argc, char *argv[])
 	unsigned char		cgb_map[MAX_MAP_SIZE];
 	CGBQUAD 			cgb_pal[MAX_SLOTS] = {{0, 0, 0, 0}};
 
-	int					arg, fname = 0, match, status;
+	char				arg, fname = 0, match, status;
 	unsigned char		chr = 0, slot = 0, used_slots;
 	unsigned short		i, width, height, columns, rows, options = 0, padding = 0, used_tiles = 0;
 	unsigned int		rgbhex = 0;
