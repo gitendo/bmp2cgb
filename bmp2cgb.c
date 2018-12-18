@@ -178,8 +178,8 @@ int main (int argc, char *argv[])
 	unsigned char		cgb_map[MAX_MAP_SIZE];
 	CGBQUAD 			cgb_pal[MAX_SLOTS] = {{0, 0, 0, 0}};
 
-	char				arg, fname = 0, match, status;
-	unsigned char		chr = 0, slot = 0, used_slots;
+	char				 match, status;
+	unsigned char		arg, chr = 0, fname = 0, slot = 0, used_slots;
 	unsigned short		i, width, height, columns, rows, options = 0, padding = 0, used_tiles = 0;
 	unsigned int		rgbhex = 0;
 
