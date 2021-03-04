@@ -1,4 +1,5 @@
 *.o
+*.obj
 bmp2cgb
 bmp2cgb.exe
 bmp2cgb2.ppj
