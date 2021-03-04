@@ -273,7 +273,7 @@ int main (int argc, char *argv[])
 
 	if(!(options & FLAG_DEBUG))
 	{
-		char *ext = strstr(argv[fname], ".bmp");						
+		char *ext = strstr(argv[fname], ".bmp");
 		if(ext)
 			ext[0] = 0;													
 

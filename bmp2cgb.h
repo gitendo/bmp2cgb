@@ -1,7 +1,7 @@
 #ifndef BMP2CGB_H
 #define BMP2CGB_H
 
-#define VERSION 		1.20
+#define VERSION 		1.21
 
 #define	BI_RGB			0
 #define BI_RLE8			1

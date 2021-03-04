@@ -1,4 +1,4 @@
-# bmp2cgb v1.2 ![standard](https://img.shields.io/badge/standard-C11-blue.svg?longCache=true&style=flat) ![dependencies](https://img.shields.io/badge/dependencies-none-green.svg?longCache=true&style=flat) ![status](https://img.shields.io/badge/status-working-green.svg?longCache=true&style=flat)
+# bmp2cgb v1.21 ![standard](https://img.shields.io/badge/standard-C11-blue.svg?longCache=true&style=flat) ![dependencies](https://img.shields.io/badge/dependencies-none-green.svg?longCache=true&style=flat) ![status](https://img.shields.io/badge/status-working-green.svg?longCache=true&style=flat)
 
 Complete solution for converting graphics and real time palette adjustments for Game Boy Color. Heavily inspired by original utility created by Ars of [Fatality](http://speccy.info/Fatality) in 1999. It's tiny, fast, command line driven and doesn't require any dependencies, so you can compile it without any problems on Windows or *nix systems.
 
@@ -27,10 +27,7 @@ You can read [the manual](MANUAL.md) if you need more detailed explanation or do
 Currently only BITMAPINFOHEADER is supported. This one is most common and widely used so it shouldn't really matter. However if you end up with `Unsupported bitmap type, BITMAPINFOHEADER not found!` you might want to check settings of your graphics software ie. for Gimp you need to enable `Do not write color space information` in `Compatibility Options` while exporting image to BMP.
 
 ### Recent changes :
-- rewritten and restructured code with some optimizations
-- added support for 4/24/32bpp formats
-- additional options and usage changes
-- removed minor bugs
+- fixed bug related to trimmed palettes in 4bpp/8bpp bitmaps
 
 ### To do :
 - add support for BITMAPV4HEADER and BITMAPV5HEADER
