@@ -171,7 +171,7 @@ char process_bmp(char *fname, BITMAPFILEHEADER **header, BITMAPINFOHEADER **info
 {
 	FILE				*fp;
 	char				result;
-	int					size;
+	int					size, bmp_pal_len;
 
 	fp = fopen(fname, "rb");
 	if(fp == NULL)
@@ -207,10 +207,12 @@ char process_bmp(char *fname, BITMAPFILEHEADER **header, BITMAPINFOHEADER **info
 
 	memset(bmp_pal, 0xff, sizeof(RGBQUAD) * 256);
 
+	bmp_pal_len = (*header)->bfOffBits - ftell(fp);				// fixes trimmed palette issue in 4bpp/8bpp bitmaps
+
 	switch((*info)->biBitCount)
 	{
 		case 4:
-			fread(bmp_pal, sizeof(RGBQUAD) * 16, 1, fp);
+			fread(bmp_pal, bmp_pal_len, 1, fp);
 			*bmp_data = malloc((*info)->biWidth * (*info)->biHeight);
 			if (*bmp_data == NULL)
 				return(ERR_MALLOC_BMPD);
@@ -219,7 +221,7 @@ char process_bmp(char *fname, BITMAPFILEHEADER **header, BITMAPINFOHEADER **info
 			break;
 
 		case 8:
-			fread(bmp_pal, sizeof(RGBQUAD) * 256, 1, fp);
+			fread(bmp_pal, bmp_pal_len, 1, fp);
 			*bmp_data = malloc((*info)->biWidth * (*info)->biHeight);
 			if (*bmp_data == NULL)
 				return(ERR_MALLOC_BMPD);
