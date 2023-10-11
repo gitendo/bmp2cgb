@@ -1,3 +1,10 @@
+### Notice
+Starting October 12th, 2023 GitHub is enforcing mandatory [two-factor authentication](https://github.blog/2023-03-09-raising-the-bar-for-software-security-github-2fa-begins-march-13/) on my account.  
+I'm not going to comply and move all my activity to GitLab instead.  
+Any future updates / releases will be available at: [https://gitlab.com/gitendo/bmp2cgb](https://gitlab.com/gitendo/bmp2cgb)  
+Thanks and see you there!
+___
+
 # bmp2cgb v1.21 ![standard](https://img.shields.io/badge/standard-C11-blue.svg?longCache=true&style=flat) ![dependencies](https://img.shields.io/badge/dependencies-none-green.svg?longCache=true&style=flat) ![status](https://img.shields.io/badge/status-working-green.svg?longCache=true&style=flat)
 
 Complete solution for converting graphics and real time palette adjustments for Game Boy Color. Heavily inspired by original utility created by Ars of [Fatality](http://speccy.info/Fatality) in 1999. It's tiny, fast, command line driven and doesn't require any dependencies, so you can compile it without any problems on Windows or *nix systems.
